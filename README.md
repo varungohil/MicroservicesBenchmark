@@ -8,6 +8,18 @@ Supported actions:
 - enroll in a courses given the new added class is not at fully capacity and does not conflict with any existing ones
 - check reviews/comments from previous stduents who took the class
 
+## Setup
+```
+pip3 install -r requirements.txt
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install 14
+nvm use 14
+npm install -g @angular/cli
+cd enrollment-app/
+npm install
+```
+For more details on installing nvm refer to this github repo : [nvm](https://github.com/nvm-sh/nvm#install--update-script)
+
 ## Run the suite
 ```
 ./build frontend.sh
