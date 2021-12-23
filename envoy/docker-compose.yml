@@ -10,7 +10,7 @@ services:
       NODE_ENV: development
       loglevel: debug
     ports:
-      - 8080:8080
+      - 8081:8081
       - 9901:9901
     networks:
       - envoymesh
