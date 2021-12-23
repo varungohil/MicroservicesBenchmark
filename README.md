@@ -22,7 +22,7 @@ For more details on installing nvm refer to this github repo : [nvm](https://git
 
 ## Run the suite
 ```
-./build frontend.sh
+./build-frontend.sh
 ```
 This will build/deploy all the Angular components inside enrollment-app.
 ```
