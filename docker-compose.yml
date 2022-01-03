@@ -31,6 +31,9 @@ services:
     networks:
       - envoymesh
     restart: always
+    depends_on:
+      mongodb-register:
+        condition: service_started
 
   classlist:
     container_name: classlist
@@ -40,6 +43,11 @@ services:
     networks:
       - envoymesh
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      mongodb-classlist:
+        condition: service_started
 
   cart:
     container_name: cart
@@ -49,7 +57,12 @@ services:
     networks:
       - envoymesh
     restart: always
-
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      mongodb-cart:
+        condition: service_started
+      
   prof:
     container_name: prof
     build: ./prof
@@ -58,6 +71,11 @@ services:
     networks:
       - envoymesh
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      mongodb-prof:
+        condition: service_started
   
   mongodb-register:
     container_name: register_db
