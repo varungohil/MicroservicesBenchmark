@@ -40,7 +40,7 @@ export class DashboardSearchComponent {
     let query = event.target.value; 
     if (query != '') {
       this.searchResults = this.classes.filter(
-        class_ => ( class_.getTitle().includes(query) || class_.getCode().includes(query) ));
+        class_ => ( class_.getTitle().includes(query) || class_.getCode().includes(query) || class_.getTitle().toLowerCase().includes(query.toLowerCase()) || class_.getCode().toLowerCase().includes(query.toLowerCase()) ));
     }
   }
 
