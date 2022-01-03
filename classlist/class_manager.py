@@ -28,6 +28,7 @@ class classlistService(
     classList_pb2_grpc.classlistServicer
 ):
     def getClassList(self, request, context):
+        print("Inside getClassList")
         db.hello.insert_one({"count": 5})
         classes = []
         for class_ in db.classInfo.find({}):
@@ -84,6 +85,7 @@ def scrape_num_class():
     return int(num.string)
 
 def scrape_classes():
+    print("Inside scrape classes")
     i = 0
     for node in soup.find_all('div',attrs={'role': 'region'}):
         i+=1
@@ -110,48 +112,45 @@ def scrape_classes():
         titles.append(title)
 
         section_1 = []
-        for sec in node.select("div > div > ul[class='section section-last'] "):
-            #print (sec['aria-label'])
-            section_1.append(sec['aria-label'][14:len(sec['aria-label'])])
-        for sec in node.select("div > div > ul[class='section'] "):
-            #print (sec['aria-label'])
-            section_1.append(sec['aria-label'][14:len(sec['aria-label'])])
-        section.append(section_1)
-        instructor = []
-        for inst in node.select("div > div > ul[class='section section-last']> li[class='meeting-pattern'] > ul[class='meetings meetings-first'] > li[class='instructors'] > p > span[class='tooltip-iws']"):
-            instructor.append(inst['data-content'])
-            #print(inst['data-content'])
-        for inst in node.select("div > div > ul[class='section']> li[class='meeting-pattern'] > ul[class='meetings meetings-first'] > li[class='instructors'] > p > span[class='tooltip-iws']"):
-            instructor.append(inst['data-content'])
-        instructors.append(instructor)
-        time = []
-        for tim in node.select("div > div > ul[class='section section-last']> li[class='meeting-pattern'] > ul[class='meetings meetings-first'] > li[class='dates'] > span[class='pattern'] > time[class='time']"):
-            time.append(tim.string)
-            #print(tim.string)
-        for tim in node.select("div > div > ul[class='section']> li[class='meeting-pattern'] > ul[class='meetings meetings-first'] > li[class='dates'] > span[class='pattern'] > time[class='time']"):
-            time.append(tim.string)
-            #print(tim.string)
-        if (len(time) != len(section_1)):
-            #print(len(section_1)-len(time))
-            for t in range(0,len(section_1)-len(time)):
-                time.append("None")
-        times.append(time)
-        day = []
-        for da in node.select("div > div > ul[class='section section-last']> li[class='meeting-pattern'] > ul[class='meetings meetings-first'] > li[class='dates'] > span[class='pattern'] > span[class='pattern-only'] > span[class='tooltip-iws']"):
-            day.append(da.string)
-            #print(da.string)
-        for da in node.select("div > div > ul[class='section']> li[class='meeting-pattern'] > ul[class='meetings meetings-first'] > li[class='dates'] > span[class='pattern'] > span[class='pattern-only'] > span[class='tooltip-iws']"):
-            day.append(da.string)
-            #print(da.string)
-        days.append(day)
-
         class_number = []
-        for class_num in node.select("div > div > ul[class='section section-last']> li[class='class-numbers'] > p > strong[class='tooltip-iws']"):
-            class_number.append(class_num.string)
-            #print(inst['data-content'])
-        for class_num in node.select("div > div > ul[class='section']> li[class='class-numbers'] > p > strong[class='tooltip-iws']"):
-            class_number.append(class_num.string)
+        instructor = []
+        time = []
+        day = []
+        for sec in  node.find_all("ul", {"class": "section"}):
+            section_1.append(sec['aria-label'][14:len(sec['aria-label'])])
+
+            for inst in sec.find_all("li", {"class" : "instructors"}):
+                instructor.append(inst.find("span")["data-content"])
+
+            for tim in sec.find_all("time", {"class" : "time"}):
+                try:
+                    time.append(tim.text)
+                except:
+                    time.append("NA")
+            
+            for da in sec.find_all("span", {"class" : "pattern-only"}):
+                day.append(da.find("span").text)
+
+            for cn in sec.find_all("li", {"class":"class-numbers"}):
+                class_number.append(cn.find("strong")["data-content"])
+
         class_numbers.append(class_number)
+        days.append(day)
+        section.append(section_1)
+        times.append(time)
+        instructors.append(instructor)
+    for i in range(len(section)):
+        if len(times[i]) != len(section[i]):
+            print(times[i])
+            diff = len(section[i]) - len(times[i])
+            for j in range(diff):
+                times[i].append("NA")
+    print(len(titles))
+    print(len(class_numbers))
+    print(len(days))
+    print(len(times))
+    print(len(instructors))
+    print(len(section))
 
 
 '''
@@ -172,12 +171,17 @@ def update_db(): # insert into db
         data["description"] = descriptions[j]
         course_info = []
         for k in range(0,len(section[j])):
+            print(j)
+            print(k)
             new_course = {}
             new_course["section"] = section[j][k]
             new_course["class_numbers"] = class_numbers[j][k]
-            new_course["times"] = times[j][k] if ( len(times[j]) >= k-1 ) else "None"
             new_course["days"] = days[j][k]
             new_course["instructors"] = instructors[j][k]
+            print(new_course)
+            print(times[j])
+            print(section[j])
+            new_course["times"] = times[j][k] if ( len(times[j]) >= k-1 ) else "None"
             course_info.append(new_course)
         data["course_info"] = course_info
         data["size"] = 10
@@ -193,7 +197,9 @@ def serve():
         classlistService(), server
     )
     server.add_insecure_port("0.0.0.0:5002")
+    print("Starting Server")
     server.start()
+    print("Waiting...")
     server.wait_for_termination()
 
 if __name__ == "__main__":
@@ -205,5 +211,5 @@ if __name__ == "__main__":
         init_credits()
         scrape_classes()
         update_db()
-    
+    print("Serving")
     serve()
