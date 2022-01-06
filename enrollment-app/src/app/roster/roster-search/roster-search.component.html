@@ -15,6 +15,7 @@
         <strong>{{class.getCode()}} </strong>{{class.getTitle()}}
       </a>
     </mat-card>
+    <mat-error  *ngIf="noClassMatch == true">No matches found</mat-error>
   <h2>
     SEARCH BY PROFESSOR
   </h2>
@@ -31,4 +32,5 @@
         <strong>{{prof.getName()}}</strong>
       </a>
     </mat-card>
+    <mat-error  *ngIf="noProfMatch == true">No matches found</mat-error>
 </div>
