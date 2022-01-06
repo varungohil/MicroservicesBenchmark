@@ -11,14 +11,14 @@ from sklearn.preprocessing import normalize
 def build_vectorizer(max_n_terms=5000, max_prop_docs=0.8, min_n_docs=1):
     return TfidfVectorizer(max_df=max_prop_docs, min_df=min_n_docs, max_features=max_n_terms, stop_words='english', ngram_range=(1, 2))
 
-data = csv.DictReader(open("class.csv", mode='r', encoding='utf-8-sig'))
+data = csv.DictReader(open("class_new.csv", mode='r', encoding='utf-8-sig'))
 tfidf_vectorizer = build_vectorizer()
 course_term_tfidf_matrix = tfidf_vectorizer.fit_transform([d['description'] for d in data]).toarray()
 index_to_vocab = {i:v for i, v in enumerate(tfidf_vectorizer.get_feature_names())}
 
-data = csv.DictReader(open("class.csv", mode='r', encoding='utf-8-sig'))
+data = csv.DictReader(open("class_new.csv", mode='r', encoding='utf-8-sig'))
 course_title_to_index = {d['title']: int(d['index']) for d in data}
-data = csv.DictReader(open("class.csv", mode='r', encoding='utf-8-sig'))
+data = csv.DictReader(open("class_new.csv", mode='r', encoding='utf-8-sig'))
 course_index_to_title = {int(d['index']): d['title'] for d in data}
 
 def get_cos_sim(course1: str, course2: str, tfidf_mat=course_term_tfidf_matrix, course_title_to_index=course_title_to_index):
@@ -47,13 +47,24 @@ def get_ranked_courses(course: str, sim_matrix: np.ndarray):
     course_score_lst = sorted(course_score_lst, key=lambda x: -x[1])
     return course_score_lst
 
-def get_top(query: str, sim_matrix: np.ndarray, k=7):
+def get_top(query: str, sim_matrix: np.ndarray, k=5):
     """Print the k most and least similar courses to a query course, given a similarity matrix"""
     course_score_lst = get_ranked_courses(query, sim_matrix)
     
     # print("Top {} most similar courses to {}".format(k, query))
     # print("======")
-    course_and_score = [course + ' ' + str(score) for (course, score) in course_score_lst[:k]]
+    course_and_score = []
+    included_courses = []
+    count = 0
+    for (course, score) in course_score_lst[:2*k]:
+        if count >= 5:
+            break
+        if(course != query and course not in included_courses):
+            course_and_score.append(course + ' ' + str(round(100*score, 2)))
+            included_courses.append(course)
+            count += 1
+
+    # course_and_score = [course + ' ' + str(score) for (course, score) in course_score_lst[:k]]
     top_course_with_scores = '; '.join(course_and_score)
     return top_course_with_scores
     # for (course, score) in course_score_lst[:k]:
@@ -71,6 +82,7 @@ course_sims_cos = build_course_sims_cos(course_term_tfidf_matrix)
 # result = get_top(query1, course_sims_cos)
 # print(result)
 num_courses = len(course_index_to_title)
+print(num_courses)
 csv_file = open("recommend.csv", "w", encoding='utf-8')
 csv_writer = csv.writer(csv_file)
 csv_writer.writerow(['index', 'title', 'recommendation'])
