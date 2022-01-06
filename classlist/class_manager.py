@@ -24,14 +24,22 @@ client = pymongo.MongoClient("classlist_db",27017)
 # client = pymongo.MongoClient("localhost",27018)
 db = client.classlist
 
+#------------------------------------------------------
+outfile = csv.writer(open("class.csv", "w", encoding='utf-8'))
+outfile.writerow(['index', 'title', 'number', 'description'])
+outfile_codes = []
+ofindex = 0
+#-------------------------------------------------------
+
 class classlistService(
     classList_pb2_grpc.classlistServicer
 ):
     def getClassList(self, request, context):
         print("Inside getClassList")
-        db.hello.insert_one({"count": 5})
+        print("Year " + request.year)
+        # db.hello.insert_one({"count": 5})
         classes = []
-        for class_ in db.classInfo.find({}):
+        for class_ in db.classInfo.find({"year":request.year}):
             sections = [] 
             for section_ in class_['course_info']:
                 temp_section = {}
@@ -55,9 +63,9 @@ class classlistService(
 
 # loads only spring 21 classes
 TOTAL_ECE_CLASSES=0
-base_url = "https://classes.cornell.edu/browse/roster/SP21/class/ECE/"
-page = urllib.request.urlopen("https://classes.cornell.edu/browse/roster/SP21/subject/ECE")
-soup = BeautifulSoup(page,'html.parser')
+# base_url = "https://classes.cornell.edu/browse/roster/SP21/class/ECE/"
+# page = urllib.request.urlopen("https://classes.cornell.edu/browse/roster/SP21/subject/ECE")
+# soup = BeautifulSoup(page,'html.parser')
 
 titles = []
 instructors = []
@@ -70,22 +78,43 @@ class_numbers = [] # unique number 34343
 credit = [] # 3 credits
 times = [] # 6-9
 days = [] # M-W
+years = []
 
-def init_credits(): 
+def init_credits(year): 
     # hard coding credits as I had difficulty grabbing the data
-    for x in range(54):
-        if (x==0 or x==7 or x==9 or x==13 or x==15 or x==19 or x==23 or x==30 or x==31 or x==32 or x==34 or x==39):
-            credit.append(3)
-        else:
-            credit.append(4)
+    if (year  == "SP21"):
+        for x in range(54):
+            if (x==0 or x==7 or x==9 or x==13 or x==15 or x==19 or x==23 or x==30 or x==31 or x==32 or x==34 or x==39):
+                credit.append(3)
+            else:
+                credit.append(4)
+    if (year == "FA21"):
+        for x in range(62):
+            if (x==2 or x==4 or x==10 or x==21 or x==24 or x==31 or x==34 or x==35 or x==36 or x==40 or x==41 or x==52 or x == 54 or x == 59):
+                credit.append(3)
+            elif (x == 23 or x == 25 or x == 28 or x == 53 or x == 57 or x == 60):
+                credit.append(1)
+            else:
+                credit.append(4)  
 
-def scrape_num_class():
+# def scrape_num_class():
+#     node = soup.find_all('div',attrs={'id': 'class-subject-listing'})[0]
+#     num = node.select("p > span")[0]
+#     return int(num.string)
+
+def scrape_classes(year):
+    print("Inside scrape classes")
+    init_credits(year)
+    base_url = "https://classes.cornell.edu/browse/roster/" + year + "/subject/ECE/"
+    print(base_url)
+    page = urllib.request.urlopen(base_url)
+    soup = BeautifulSoup(page,'html.parser')
+
+
     node = soup.find_all('div',attrs={'id': 'class-subject-listing'})[0]
     num = node.select("p > span")[0]
-    return int(num.string)
+    TOTAL_ECE_CLASSES = int(num.string)
 
-def scrape_classes():
-    print("Inside scrape classes")
     i = 0
     for node in soup.find_all('div',attrs={'role': 'region'}):
         i+=1
@@ -96,7 +125,7 @@ def scrape_classes():
         code = node['aria-label'][7:len(node['aria-label'])] # ECE 1210
         subject = node['aria-label'][7:10] # ECE
         nbr = node['aria-label'][11:15] # 1210
-        new_url = base_url + nbr
+        new_url = "https://classes.cornell.edu/browse/roster/" + year + "/class/ECE/" + nbr
         new_page = urllib.request.urlopen(new_url)
         new_soup = BeautifulSoup(new_page,'html.parser')
         description = new_soup.find('p',class_='catalog-descr').text.strip()
@@ -105,11 +134,25 @@ def scrape_classes():
         course_code.append(code)
         data_subject.append(subject)
         data_catalog_nbr.append(nbr)
+        years.append(year)
+
+
+
         title = []
         for titl in node.select("h3 > div[class='title-coursedescr'] > a"):
             title.append(titl.string)
             #print(titl.string)
         titles.append(title)
+
+        #----------
+        global ofindex
+        # if nbr not in outfile_codes:
+        outfile.writerow([ofindex, title[0], nbr, description])
+        outfile_codes.append(nbr)
+        ofindex += 1
+        # outfile.writerow(f"{ofindex},{title[0]},{nbr},'{description}'\n")
+        
+        #----------
 
         section_1 = []
         class_number = []
@@ -145,12 +188,12 @@ def scrape_classes():
             diff = len(section[i]) - len(times[i])
             for j in range(diff):
                 times[i].append("NA")
-    print(len(titles))
-    print(len(class_numbers))
-    print(len(days))
-    print(len(times))
-    print(len(instructors))
-    print(len(section))
+    # print(len(titles))
+    # print(len(class_numbers))
+    # print(len(days))
+    # print(len(times))
+    # print(len(instructors))
+    # print(len(section))
 
 
 '''
@@ -160,9 +203,12 @@ def scrape_classes():
 '''
 def update_db(): # insert into db
     recommend = csv.DictReader(open("recommend.csv", mode='r', encoding='utf-8-sig'))
+    print(years)
     # for j in range(0,TOTAL_ECE_CLASSES):
     for j, title in enumerate(recommend):
+    # for j in range(len(years)):
         data = {}
+        data["year"] = years[j]
         data["titles"] = titles[j][0]
         data["course_code"] = course_code[j]
         data["subject"] = data_subject[j]
@@ -171,20 +217,20 @@ def update_db(): # insert into db
         data["description"] = descriptions[j]
         course_info = []
         for k in range(0,len(section[j])):
-            print(j)
-            print(k)
+            # print(j)
+            # print(k)
             new_course = {}
             new_course["section"] = section[j][k]
             new_course["class_numbers"] = class_numbers[j][k]
             new_course["days"] = days[j][k]
             new_course["instructors"] = instructors[j][k]
-            print(new_course)
-            print(times[j])
-            print(section[j])
+            # print(new_course)
+            # print(times[j])
+            # print(section[j])
             new_course["times"] = times[j][k] if ( len(times[j]) >= k-1 ) else "None"
             course_info.append(new_course)
         data["course_info"] = course_info
-        data["size"] = 10
+        data["size"] = 50
         data["recommendation"] = title["recommendation"]
         db.classInfo.insert_one(data)    
     
@@ -203,13 +249,13 @@ def serve():
     server.wait_for_termination()
 
 if __name__ == "__main__":
-    TOTAL_ECE_CLASSES=scrape_num_class()
-    if ( db.classCounts.count_documents({}) != TOTAL_ECE_CLASSES ):
+    # TOTAL_ECE_CLASSES=scrape_num_class()
+    # if ( db.classCounts.count_documents({}) != TOTAL_ECE_CLASSES ):
         # Always reset 
-        db.classInfo.delete_many({})
-        # Run 
-        init_credits()
-        scrape_classes()
-        update_db()
+    db.classInfo.delete_many({})
+    # Run 
+    scrape_classes("SP21")
+    scrape_classes("FA21")
+    update_db()
     print("Serving")
     serve()

@@ -12,6 +12,8 @@ import { Professor } from '../../../../proto/prof_pb';
 export class RosterComponent implements OnInit {
   classes: Class[] = []
   profs: Professor[] = []
+  years: string[] = ["SP21", "FA21"]
+  selectedyear:string = "SP21"
 
   constructor(private client1: ClasslistClientService, private client2: ProfClientService) { }
 
@@ -23,6 +25,14 @@ export class RosterComponent implements OnInit {
     this.client2.getProfList().asObservable().subscribe(val =>  {
       this.profs = val;
       console.log(this.profs);
+    })
+  }
+
+  public onChange(event:any): void { 
+    console.log("Selected Year : " + this.selectedyear);
+    this.client1.getClassList(this.selectedyear).asObservable().subscribe(val =>  {
+      this.classes = val;
+      console.log(this.classes);
     })
   }
 }

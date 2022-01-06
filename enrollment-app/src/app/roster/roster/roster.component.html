@@ -3,7 +3,12 @@
   <div id="identity">
     <h1>Electrical &amp; Computer Engineering (ECE)</h1>
   </div>
-
+  <!-- <select>
+    <option ng-repeat="x in years">{{x}}</option>
+  </select> -->
+  <select [(ngModel)]="selectedyear" (change)="onChange($event)">
+    <option *ngFor="let v of years" [ngValue]="v">{{v}}</option>
+</select>
   <div class="content">
     <div class="roster-lists">
       <div *ngFor="let class of classes">
