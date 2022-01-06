@@ -12,7 +12,7 @@ const routes: Routes = [
     component: RosterComponent
   }, 
   {
-    path: 'class/:year/ECE/:code', 
+    path: 'class/ECE/:code', 
     component: RosterClassComponent,
     resolve: {
       classes: RosterClassResolver

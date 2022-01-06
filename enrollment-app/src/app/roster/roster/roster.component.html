@@ -8,7 +8,7 @@
   </select> -->
   <select [(ngModel)]="selectedyear" (change)="onChange($event)">
     <option *ngFor="let v of years" [ngValue]="v">{{v}}</option>
-</select>
+  </select>
   <div class="content">
     <div class="roster-lists">
       <div *ngFor="let class of classes">

@@ -18,7 +18,7 @@ export class RosterComponent implements OnInit {
   constructor(private client1: ClasslistClientService, private client2: ProfClientService) { }
 
   ngOnInit(): void {
-    this.client1.getClassList('SP21').asObservable().subscribe(val =>  {
+    this.client1.getClassList(this.selectedyear).asObservable().subscribe(val =>  {
       this.classes = val;
       console.log(this.classes);
     })
