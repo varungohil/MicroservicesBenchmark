@@ -1,4 +1,4 @@
-from selenium import webdriver
+# from selenium import webdriver
 from bs4 import BeautifulSoup
 import pymongo
 # from sklearn.feature_extraction.text import CountVectorizer
@@ -29,6 +29,7 @@ class profService(
     prof_pb2_grpc.profServicer
 ):
     def getProf(self, request, context):
+        print("Inside getProf")
         prof_ = db.profInfo.find_one({'name': request.name})
         # similar_profs = []
         # for similar_prof_ in prof_['similarProfs']:
@@ -54,13 +55,14 @@ def scrape_profs():
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(['name', 'rating', 'wouldTakeAgain', 'levelOfDifficulty', 'topTags', 'similarProfs', 'reviews', 'numReviews'])
 
-    br = webdriver.Firefox()
+    # br = webdriver.Firefox()
 
     url_list = prof_list
+    print(f"Len(url_list) = {len(url_list)}")
     for url in url_list:
-        br.get(url)
-        html = br.page_source
-        soup = BeautifulSoup(html, "lxml")
+        # br.get(url)
+        page = urllib.request.urlopen(url)
+        soup = BeautifulSoup(page, "html.parser")
 
         try:
             name = soup.find('div', class_="NameTitle__Name-dowf0z-0 cfjPUG").text.strip()
@@ -162,7 +164,10 @@ def scrape_profs():
 '''
 def update_db():
     profs = csv.DictReader(open("prof.csv", mode='r', encoding='utf-8-sig'))
+    # print(f"Len(profs) = {len(list(profs))}")
+    count = 0
     for prof in profs:
+        count += 1
         data = {}
         data["name"] = prof["name"]
         data["rating"] = prof["rating"]
@@ -173,7 +178,8 @@ def update_db():
         data["reviews"] = prof["reviews"]
         data["num_reviews"] = prof["numReviews"]
         db.profInfo.insert_one(data)
-    db.profCounts.insert_one({"count": len(list(profs))})
+    db.profCounts.insert_one({"count": count})
+    
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=20))
@@ -181,15 +187,21 @@ def serve():
         profService(), server
     )
     server.add_insecure_port("0.0.0.0:5004")
+    print("Starting server")
     server.start()
+    print("waiting...")
     server.wait_for_termination()
 
 if __name__ == "__main__":
-    TOTAL_ECE_PROFS=29 # Hard coded for now cause not all prof has a RMP page
-    if ( db.profCounts.count_documents({}) != TOTAL_ECE_PROFS ):
+    TOTAL_ECE_PROFS=74 # Hard coded for now cause not all prof has a RMP page
+    print(db.profCounts.find_one({})["count"])
+    if ( db.profCounts.find_one({})["count"] != TOTAL_ECE_PROFS ):
+        print("Scraping")
         db.profInfo.delete_many({}) # Always reset 
-        # scrape_profs()
+        db.profCounts.delete_many({}) # Always reset 
+        scrape_profs()
         update_db()
+    print(db.profCounts.find_one({})["count"])
     
     serve()
 
