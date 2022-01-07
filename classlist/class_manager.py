@@ -23,7 +23,7 @@ import classList_pb2_grpc
 client = pymongo.MongoClient("classlist_db",27017)
 # client = pymongo.MongoClient("localhost",27018)
 db = client.classlist
-
+TOTAL_ECE_CLASSES=114
 #------------------------------------------------------
 outfile = csv.writer(open("class.csv", "w", encoding='utf-8'))
 outfile.writerow(['index', 'title', 'number', 'description'])
@@ -35,11 +35,15 @@ class classlistService(
     classList_pb2_grpc.classlistServicer
 ):
     def getClassList(self, request, context):
-        print("Inside getClassList")
-        print("Year " + request.year)
+        print("Inside getClassList - " + request.year)
+        # print("Year " + request.year)
         # db.hello.insert_one({"count": 5})
         classes = []
-        for class_ in db.classInfo.find({"year":request.year}):
+        if request.year == "all":
+            dblist = db.classInfo.find({})
+        else:
+            dblist = db.classInfo.find({"year":request.year})
+        for class_ in dblist:
             sections = [] 
             for section_ in class_['course_info']:
                 temp_section = {}
@@ -62,7 +66,7 @@ class classlistService(
         return classListResponse(classes=classes)
 
 # loads only spring 21 classes
-TOTAL_ECE_CLASSES=0
+
 # base_url = "https://classes.cornell.edu/browse/roster/SP21/class/ECE/"
 # page = urllib.request.urlopen("https://classes.cornell.edu/browse/roster/SP21/subject/ECE")
 # soup = BeautifulSoup(page,'html.parser')
@@ -113,12 +117,14 @@ def scrape_classes(year):
 
     node = soup.find_all('div',attrs={'id': 'class-subject-listing'})[0]
     num = node.select("p > span")[0]
-    TOTAL_ECE_CLASSES = int(num.string)
+    num_classes = int(num.string)
+    # global TOTAL_ECE_CLASSES
+    # TOTAL_ECE_CLASSES += num_classes
 
     i = 0
     for node in soup.find_all('div',attrs={'role': 'region'}):
         i+=1
-        if ( i > TOTAL_ECE_CLASSES ):
+        if ( i > num_classes ):
             break
         if ( node.find(class_="secondary-section" ) ):
             continue
@@ -192,7 +198,9 @@ def scrape_classes(year):
     # print(len(class_numbers))
     # print(len(days))
     # print(len(times))
-    # print(len(instructors))
+    print("#----------------------")
+    print(instructors)
+    print("#----------------------")
     # print(len(section))
 
 
@@ -249,13 +257,14 @@ def serve():
     server.wait_for_termination()
 
 if __name__ == "__main__":
-    # TOTAL_ECE_CLASSES=scrape_num_class()
-    # if ( db.classCounts.count_documents({}) != TOTAL_ECE_CLASSES ):
+    if ( db.classCounts.find_one({})["count"] != TOTAL_ECE_CLASSES ):
         # Always reset 
-    db.classInfo.delete_many({})
-    # Run 
-    scrape_classes("SP21")
-    scrape_classes("FA21")
-    update_db()
+        db.classInfo.delete_many({})
+        db.classCounts.delete_many({})
+        # Run 
+        scrape_classes("SP21")
+        scrape_classes("FA21")
+        update_db()
+    print(TOTAL_ECE_CLASSES)
     print("Serving")
     serve()
