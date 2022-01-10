@@ -24,16 +24,16 @@ export class RosterSearchComponent implements OnInit {
   constructor(private router: Router, private route: ActivatedRoute) { this.classes = []; this.profs = []; }
 
   ngOnInit(): void {
-    this.client.getClassList("FA21").asObservable().subscribe(val =>  {
+    this.client.getClassList("all").asObservable().subscribe(val =>  {
       this.allClasses = val;
       // console.log(this.classes);
     })
-    this.client.getClassList("SP21").asObservable().subscribe(val =>  {
-      console.log("search init");
-      console.log(val);
-      this.allClasses = [...this.allClasses, ...val];
-      // console.log(this.classes);
-    })
+    // this.client.getClassList("SP21").asObservable().subscribe(val =>  {
+    //   console.log("search init");
+    //   console.log(val);
+    //   this.allClasses = [...this.allClasses, ...val];
+    //   // console.log(this.classes);
+    // })
   }
 
   search(event: any) {
