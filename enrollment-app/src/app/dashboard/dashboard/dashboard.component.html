@@ -6,7 +6,13 @@
     <div class="container-classes" *ngIf=" ELEMENT_DATA.length > 0;else empty_cart">
       <div>
         <h2>Your Enrolled Courses</h2>
-        <div class="btn">
+        <!-- <div class="btn-refresh">
+
+        </div> -->
+        <div>
+          <button mat-stroked-button color="accent" type="submit" [disabled]="loading" class="btn-primary btn-refresh" (click)="loadCart()">
+            <a  class="btn btn-link">Refresh Cart</a>
+        </button>
           <button mat-stroked-button color="accent" type="submit" [disabled]="loading" class="btn btn-primary" (click)="dropSubmit()">
               <a  class="btn btn-link">Drop A Class</a>
           </button>

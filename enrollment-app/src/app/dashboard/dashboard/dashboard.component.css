@@ -24,6 +24,10 @@ table {
   text-align: end;
 }
 
+.btn-refresh {
+  text-align: start;
+}
+
 #identity {
   padding: 25px 0;
   background: #fff;
