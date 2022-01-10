@@ -56,6 +56,8 @@ class cartService(
             span.set_attribute("user_name", request.userName)
             span.set_attribute("course_code",request.courseCode )
             print("--Add Class Entered---------------------------------------------------------")
+            if(db.classInfo.find_one({"course_code":request.courseCode})["year"] != "SP21"):
+                return classResponse(success=False)
             size = db.classInfo.find_one({"course_code":request.courseCode})["size"]
             print(str(request.courseCode) + " size = " + str(size))
             if ( size == 0 ): # class is full
