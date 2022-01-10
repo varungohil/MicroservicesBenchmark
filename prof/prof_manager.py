@@ -12,6 +12,52 @@ import grpc
 import random
 from concurrent import futures
 from prof_links import *
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+# Jaeger python client --------------------------------------------
+# from jaeger_client import Config
+
+
+# config = Config(
+#     config={ # usually read from some yaml config
+#         'sampler': {
+#             'type': "const",
+#             'param': 1,
+#         },
+#         'local_agent': {
+#             'reporting_host': 'jaeger-agent',
+#             'reporting_port': '6831',
+#         }
+#     },
+#     service_name='prof',
+# )
+# tracer = config.initialize_tracer()
+# Jaeger python client ends --------------------------------------------
+
+provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "prof"}))
+trace.set_tracer_provider(provider)
+# print("Created provider")
+jaeger_exporter = JaegerExporter(
+    agent_host_name="jaeger-agent",
+    agent_port=6831,
+)
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(jaeger_exporter)
+)
+tracer = trace.get_tracer(__name__)
+# print("Created exporter")
+# processor = BatchSpanProcessor(jaeger_exporter)
+# print("Created processor")
+# provider.add_span_processor(processor)
+# print("Added span processor")
+# trace.set_tracer_provider(provider)
+# print("Set tracer provider")
+
+
+
 
 from prof_pb2 import (
     profRequest,
@@ -29,24 +75,30 @@ class profService(
     prof_pb2_grpc.profServicer
 ):
     def getProf(self, request, context):
-        print("Inside getProf")
-        prof_ = db.profInfo.find_one({'name': request.name})
-        # similar_profs = []
-        # for similar_prof_ in prof_['similarProfs']:
-        #     temp_prof = {}
-        #     temp_prof['rating'] = prof_['section']
-        #     temp_prof['name'] = prof_['name']
-        #     temp_prof['link'] = prof_['link']
-        #     similar_profs.append(Professor(rating=temp_prof['rating'],name=temp_prof['name'],link=temp_prof['link']))
-        return profResponse(prof=Professor(name=prof_['name'],rating=prof_['rating'], 
-                    wouldTakeAgain=prof_['would_take_again'], levelOfDifficulty=prof_['level_of_difficulty'], topTags=prof_['top_tags'], reviews=prof_['reviews'], numReviews=prof_['num_reviews']))
+        # with tracer.start_span('getProf') as span:
+        with tracer.start_as_current_span("getProf") as span:
+            print("Inside getProf")
+            prof_ = db.profInfo.find_one({'name': request.name})
+            span.set_attribute("prof_name", request.name)
+            # similar_profs = []
+            # for similar_prof_ in prof_['similarProfs']:
+            #     temp_prof = {}
+            #     temp_prof['rating'] = prof_['section']
+            #     temp_prof['name'] = prof_['name']
+            #     temp_prof['link'] = prof_['link']
+            #     similar_profs.append(Professor(rating=temp_prof['rating'],name=temp_prof['name'],link=temp_prof['link']))
+            return profResponse(prof=Professor(name=prof_['name'],rating=prof_['rating'], 
+                        wouldTakeAgain=prof_['would_take_again'], levelOfDifficulty=prof_['level_of_difficulty'], topTags=prof_['top_tags'], reviews=prof_['reviews'], numReviews=prof_['num_reviews']))
     
     def getProfList(self, request, context):
-        profs = []
-        for prof_ in db.profInfo.find({}):
-            profs.append(Professor(name=prof_['name'],rating=prof_['rating'], 
-                    wouldTakeAgain=prof_['would_take_again'], levelOfDifficulty=prof_['level_of_difficulty'], topTags=prof_['top_tags'], reviews=prof_['reviews'], numReviews=prof_['num_reviews']))
-        return profListResponse(profs=profs)
+        # with tracer.start_span('getProfList') as span:
+        with tracer.start_as_current_span("getProfList") as span:
+            print("getProfList----------------------------------------------------")
+            profs = []
+            for prof_ in db.profInfo.find({}):
+                profs.append(Professor(name=prof_['name'],rating=prof_['rating'], 
+                        wouldTakeAgain=prof_['would_take_again'], levelOfDifficulty=prof_['level_of_difficulty'], topTags=prof_['top_tags'], reviews=prof_['reviews'], numReviews=prof_['num_reviews']))
+            return profListResponse(profs=profs)
 
 base_url = "https://www.ratemyprofessors.com/"
 

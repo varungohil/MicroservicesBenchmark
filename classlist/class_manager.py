@@ -19,6 +19,37 @@ from classList_pb2 import (
     Time,
 )
 import classList_pb2_grpc
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "classlist"}))
+trace.set_tracer_provider(provider)
+jaeger_exporter = JaegerExporter(
+    agent_host_name="jaeger-agent",
+    agent_port=6831,
+)
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(jaeger_exporter)
+)
+tracer = trace.get_tracer(__name__)
+# from jaeger_client import Config
+# config = Config(
+#     config={ # usually read from some yaml config
+#         'sampler': {
+#             'type': "const",
+#             'param': 1,
+#         },
+#         'local_agent': {
+#             'reporting_host': 'jaeger-agent',
+#             'reporting_port': '6831',
+#         }
+#     },
+#     service_name='classlist',
+# )
+# tracer = config.initialize_tracer()
 
 client = pymongo.MongoClient("classlist_db",27017)
 # client = pymongo.MongoClient("localhost",27018)
@@ -35,35 +66,37 @@ class classlistService(
     classList_pb2_grpc.classlistServicer
 ):
     def getClassList(self, request, context):
-        print("Inside getClassList - " + request.year)
-        # print("Year " + request.year)
-        # db.hello.insert_one({"count": 5})
-        classes = []
-        if request.year == "all":
-            dblist = db.classInfo.find({})
-        else:
-            dblist = db.classInfo.find({"year":request.year})
-        for class_ in dblist:
-            sections = [] 
-            for section_ in class_['course_info']:
-                temp_section = {}
-                temp_section['title'] = section_['section']
-                temp_section['number'] = section_['class_numbers']
-                temp_section['instructors'] = section_['instructors']
-                temp_section['days'] = section_['days']
-                times = section_['times'].split(" ")
-                temp_section['times'] = {'start': times[0], 'end': times[-1] }
-                sections.append(
-                    Section(title=temp_section['title'],number=temp_section['number'], 
-                    instructors=temp_section['instructors'], days=temp_section['days'], 
-                    times=temp_section['times']
-                ))
+        with tracer.start_as_current_span('getClassList') as span:
+            print("Inside getClassList - " + request.year)
+            span.set_attribute("year", request.year)
+            classes = []
+            with tracer.start_as_current_span('classlist_db-getClassList') as spandb:
+                spandb.set_attribute("year", request.year)
+                if request.year == "all":
+                    dblist = db.classInfo.find({})
+                else:
+                    dblist = db.classInfo.find({"year":request.year})
+            for class_ in dblist:
+                sections = [] 
+                for section_ in class_['course_info']:
+                    temp_section = {}
+                    temp_section['title'] = section_['section']
+                    temp_section['number'] = section_['class_numbers']
+                    temp_section['instructors'] = section_['instructors']
+                    temp_section['days'] = section_['days']
+                    times = section_['times'].split(" ")
+                    temp_section['times'] = {'start': times[0], 'end': times[-1] }
+                    sections.append(
+                        Section(title=temp_section['title'],number=temp_section['number'], 
+                        instructors=temp_section['instructors'], days=temp_section['days'], 
+                        times=temp_section['times']
+                    ))
 
-            classes.append(Class(title=class_['titles'],code=class_['course_code'], 
-                    subject=class_['subject'], nbr=class_['nbr'], credit=str(class_['credit']), description=class_['description'], sections=sections, recommendation=class_['recommendation']
-                ))
+                classes.append(Class(title=class_['titles'],code=class_['course_code'], 
+                        subject=class_['subject'], nbr=class_['nbr'], credit=str(class_['credit']), description=class_['description'], sections=sections, recommendation=class_['recommendation']
+                    ))
 
-        return classListResponse(classes=classes)
+            return classListResponse(classes=classes)
 
 # loads only spring 21 classes
 

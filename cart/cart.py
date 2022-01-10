@@ -12,6 +12,38 @@ from studentCart_pb2 import (
 )
 import studentCart_pb2_grpc
 
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "cart"}))
+trace.set_tracer_provider(provider)
+jaeger_exporter = JaegerExporter(
+    agent_host_name="jaeger-agent",
+    agent_port=6831,
+)
+trace.get_tracer_provider().add_span_processor(
+    BatchSpanProcessor(jaeger_exporter)
+)
+tracer = trace.get_tracer(__name__)
+# from jaeger_client import Config
+# config = Config(
+#     config={ # usually read from some yaml config
+#         'sampler': {
+#             'type': "const",
+#             'param': 1,
+#         },
+#         'local_agent': {
+#             'reporting_host': 'jaeger-agent',
+#             'reporting_port': '6831',
+#         }
+#     },
+#     service_name='cart',
+# )
+# tracer = config.initialize_tracer()
+
 client = pymongo.MongoClient("classlist_db",27017)
 client_2 = pymongo.MongoClient("cart_db",27017)
 db = client.classlist
@@ -20,101 +52,109 @@ class cartService(
     studentCart_pb2_grpc.cartServicer
 ):
     def addClass(self, request, context):
-        print("--Add Class Entered---------------------------------------------------------")
-        size = db.classInfo.find_one({"course_code":request.courseCode})["size"]
-        print(str(request.courseCode) + " size = " + str(size))
-        if ( size == 0 ): # class is full
-            return classResponse(success=False)
-        title = db.classInfo.find_one({"course_code":request.courseCode})["titles"]
-        credit = db.classInfo.find_one({"course_code":request.courseCode})["credit"]  
-        course_info = db.classInfo.find_one({"course_code":request.courseCode},{"course_info":1})["course_info"]
-        # print(str(title) + " " + str(credit) + " " + str(course_info))
-        # print(request.sectionList)
-        print(request.sectionList)
-        for section in request.sectionList:
-            for course in course_info:
-                if course["section"] == section.sec:
-                    # print(course)
-                    cart = db_2.cartInfo.find_one({"userName":request.userName})["cart"]
-                    courseTime = course["times"].split(" ")
-                    print(courseTime)
-                    del courseTime[1]
-                    # changing time to int and adding 12 hoursr if PM
-                    for i in range(len(courseTime)):
-                        courseTime[i] = courseTime[i].replace(":","")
-                        if "am" in courseTime[i]:
-                            courseTime[i] = int (courseTime[i][0:courseTime[i].find('am')])
-                        else:
-                            courseTime[i] = int (courseTime[i][0:courseTime[i].find('pm')]) + 1200
-                    for Class in cart:
-                        if Class["courseCode"] == request.courseCode and Class["section"] == section.sec:
-                            return classResponse(success=False)  # return false if class already exists in the cart
-                        time = Class["time"].split(" ")
-                        del time[1]
-                        print(f'Class["days"]={Class["days"]} and course["days"]={course["days"]}')
-                        if Class["days"] in course["days"]: # only check for time conflict if there is an operlap of days
-                            print(time)
-                            for i in range(len(time)):
-                                time[i] = time[i].replace(":","")
-                                if "am" in time[i]:
-                                    if(time[i][:2] == "12"):
-                                        time[i] = int (time[i][0:time[i].find('am')]) - 1200
+        with tracer.start_as_current_span('addClass') as span:
+            span.set_attribute("user_name", request.userName)
+            span.set_attribute("course_code",request.courseCode )
+            print("--Add Class Entered---------------------------------------------------------")
+            size = db.classInfo.find_one({"course_code":request.courseCode})["size"]
+            print(str(request.courseCode) + " size = " + str(size))
+            if ( size == 0 ): # class is full
+                return classResponse(success=False)
+            title = db.classInfo.find_one({"course_code":request.courseCode})["titles"]
+            span.set_attribute("course_title",title )
+            credit = db.classInfo.find_one({"course_code":request.courseCode})["credit"]  
+            course_info = db.classInfo.find_one({"course_code":request.courseCode},{"course_info":1})["course_info"]
+            # print(str(title) + " " + str(credit) + " " + str(course_info))
+            # print(request.sectionList)
+            print(request.sectionList)
+            for section in request.sectionList:
+                for course in course_info:
+                    if course["section"] == section.sec:
+                        # print(course)
+                        cart = db_2.cartInfo.find_one({"userName":request.userName})["cart"]
+                        courseTime = course["times"].split(" ")
+                        print(courseTime)
+                        del courseTime[1]
+                        # changing time to int and adding 12 hoursr if PM
+                        for i in range(len(courseTime)):
+                            courseTime[i] = courseTime[i].replace(":","")
+                            if "am" in courseTime[i]:
+                                courseTime[i] = int (courseTime[i][0:courseTime[i].find('am')])
+                            else:
+                                courseTime[i] = int (courseTime[i][0:courseTime[i].find('pm')]) + 1200
+                        for Class in cart:
+                            if Class["courseCode"] == request.courseCode and Class["section"] == section.sec:
+                                return classResponse(success=False)  # return false if class already exists in the cart
+                            time = Class["time"].split(" ")
+                            del time[1]
+                            print(f'Class["days"]={Class["days"]} and course["days"]={course["days"]}')
+                            if Class["days"] in course["days"]: # only check for time conflict if there is an operlap of days
+                                print(time)
+                                for i in range(len(time)):
+                                    time[i] = time[i].replace(":","")
+                                    if "am" in time[i]:
+                                        if(time[i][:2] == "12"):
+                                            time[i] = int (time[i][0:time[i].find('am')]) - 1200
+                                        else:
+                                            time[i] = int (time[i][0:time[i].find('am')])
                                     else:
-                                        time[i] = int (time[i][0:time[i].find('am')])
-                                else:
-                                    if(time[i][:2] == "12"):
-                                        time[i] = int (time[i][0:time[i].find('pm')])
-                                    else:
-                                        time[i] = int (time[i][0:time[i].find('pm')]) + 1200
-                            print(time)
-                            print(courseTime)
-                            if ( time[1] > courseTime[0] and time[0] < courseTime[1] ):
-                                # need to remove all existing section of the course
-                                i = 0 # used to find the position of the class in the cart which will be removed
-                                cartNew = []
-                                for Class_ in cart:
-                                    if Class_["courseCode"] != request.courseCode:
-                                        cartNew.append(Class_)
-                                    else:
-                                        i+=1
-                                db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cartNew}})
-                                return classResponse(success=False) # returns false due to time conflict"""
-                    request_1 = {"courseCode":request.courseCode,"title":title,"section":section.sec,"classNumber":course["class_numbers"],"days":course["days"],"time":course["times"], "instructor":course["instructors"],"credit":credit}
-                    cart.append(request_1)
-                    db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cart}}) # updating the cart of the user after adding the new class
-                    # print(db_2.cartInfo.find_one({"userName":request.userName}))
-        # print(request.courseCode)
-        db.classInfo.update_one( {"course_code":request.courseCode}, {"$inc" :{"size":-1} } ) # decrement size of the class
-        print("--Add Class Exited---------------------------------------------------------")
-        return classResponse(success=True)
+                                        if(time[i][:2] == "12"):
+                                            time[i] = int (time[i][0:time[i].find('pm')])
+                                        else:
+                                            time[i] = int (time[i][0:time[i].find('pm')]) + 1200
+                                print(time)
+                                print(courseTime)
+                                if ( time[1] > courseTime[0] and time[0] < courseTime[1] ):
+                                    # need to remove all existing section of the course
+                                    i = 0 # used to find the position of the class in the cart which will be removed
+                                    cartNew = []
+                                    for Class_ in cart:
+                                        if Class_["courseCode"] != request.courseCode:
+                                            cartNew.append(Class_)
+                                        else:
+                                            i+=1
+                                    db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cartNew}})
+                                    return classResponse(success=False) # returns false due to time conflict"""
+                        request_1 = {"courseCode":request.courseCode,"title":title,"section":section.sec,"classNumber":course["class_numbers"],"days":course["days"],"time":course["times"], "instructor":course["instructors"],"credit":credit}
+                        cart.append(request_1)
+                        db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cart}}) # updating the cart of the user after adding the new class
+                        # print(db_2.cartInfo.find_one({"userName":request.userName}))
+            # print(request.courseCode)
+            db.classInfo.update_one( {"course_code":request.courseCode}, {"$inc" :{"size":-1} } ) # decrement size of the class
+            print("--Add Class Exited---------------------------------------------------------")
+            return classResponse(success=True)
 
     def dropClass(self, request, context):
-        print("--Drop Class Entered---------------------------------------------------------")
-        cart = db_2.cartInfo.find_one({"userName":request.userName})["cart"]
-        i = 0 # used to find the position of the class in the cart which will be removed
-        cartNew = []
-        print(cart)
-        dropped = False
-        for Class in cart:
-            if Class["courseCode"] != request.courseCode:
-                cartNew.append(Class)
-            else:
-                dropped = True
-        db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cartNew}})
-        print(f"dropped = {dropped}")
-        print(cartNew)
-        if (dropped):
-            db.classInfo.update_one( {"course_code":request.courseCode}, {"$inc" :{"size":1} } ) # increment size of the class only if the class is dropped
-            return classResponse(success=True)
-        print("--Drop Class Exited---------------------------------------------------------")
-        return classResponse(success=False)
+        with tracer.start_as_current_span('dropClass') as span:
+            span.set_attribute("course_code",request.courseCode )
+            # span.set_attribute("course_title",request.title )
+            print("--Drop Class Entered---------------------------------------------------------")
+            cart = db_2.cartInfo.find_one({"userName":request.userName})["cart"]
+            i = 0 # used to find the position of the class in the cart which will be removed
+            cartNew = []
+            dropped = False
+            for Class in cart:
+                if Class["courseCode"] != request.courseCode:
+                    cartNew.append(Class)
+                else:
+                    dropped = True
+            db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cartNew}})
+            print(f"dropped = {dropped}")
+            print(cartNew)
+            if (dropped):
+                db.classInfo.update_one( {"course_code":request.courseCode}, {"$inc" :{"size":1} } ) # increment size of the class only if the class is dropped
+                return classResponse(success=True)
+            print("--Drop Class Exited---------------------------------------------------------")
+            return classResponse(success=False)
 
     def getCart(self, request, context):
-        print("--Get Cart Entered---------------------------------------------------------")
-        cart = db_2.cartInfo.find_one({"userName": request.userName})["cart"]
-        print(cart)
-        print("--Get Cart Exited---------------------------------------------------------")
-        return cartResponse(list=cart)
+        with tracer.start_as_current_span('getCart') as span:
+            print("--Get Cart Entered---------------------------------------------------------")
+            span.set_attribute("user_name", request.userName)
+            cart = db_2.cartInfo.find_one({"userName": request.userName})["cart"]
+            print(cart)
+            print("--Get Cart Exited---------------------------------------------------------")
+            return cartResponse(list=cart)
     
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=20))

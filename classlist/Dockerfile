@@ -11,6 +11,12 @@ RUN pip3 install requests
 RUN pip3 install google-cloud
 RUN pip3 install google-cloud-vision
 RUN pip3 install grpcio
-
+RUN pip3 install opentelemetry-api
+RUN pip3 install opentelemetry-sdk
+RUN pip3 install opentelemetry-exporter-jaeger
+RUN pip3 install opentelemetry-propagator-jaeger
+RUN pip3 install opentelemetry-instrumentation
+RUN pip3 install opentelemetry-instrumentation-grpc
+# RUN pip3 install jaeger-client
 COPY . .
 CMD ["python", "./class_manager.py"]
