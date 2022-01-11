@@ -7,7 +7,7 @@ request = function()
   local method = "GET"
   local headers = {}
   user_number = math.random(1, 100)
-  args = "?username=user" .. tostring(user_number) .. "&password=password" .. toString(user_number) .."&firstname=firstname" .. toString(user_number) .. "&lastname=lastname" .. toString(user_number)
-  local path = "http://localhost:5000/#/sign-up" .. args
+  args = "?username=user" .. tostring(user_number) .. "&password=password" .. toString(user_number)
+  local path = "http://localhost:5000/#/sign-in" .. args
   return wrk.format(method, path, headers, nil)
 end
