@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AsyncValidatorFn, ValidationErrors, AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RegisterClientService } from '../../services/register-client.service';
 import { StudentStateService } from '../../services/student-state.service';
@@ -23,12 +23,33 @@ export class SignInComponent implements OnInit {
       private formBuilder: FormBuilder,
       private client: RegisterClientService,
       private studentState: StudentStateService,
-      private router: Router
+      private router: Router,
+      private activatedRoute: ActivatedRoute
   ) {
-      this.signInForm = this.formBuilder.group({
-        username: ['', [Validators.required], [this.validateUsername()]],
-        password: ['', Validators.required]
-    });
+      let usernameParam: string = "";
+      let passwordParam: string = "";
+      // console.log(this.router.url.split('?')[0] );
+      this.activatedRoute.queryParams.subscribe(params => {
+        // let productid = params['productid'];
+        // let color = params['color'];
+        usernameParam = params['username'];// OUTPUT 1534
+        passwordParam = params['password'];// OUTPUT red
+      });
+      if(usernameParam && passwordParam)
+      {
+          this.signInForm = this.formBuilder.group({
+            username: [usernameParam, [Validators.required], [this.validateUsername()]],
+            password: [passwordParam, Validators.required]
+        });   
+        this.onSubmit();   
+      }
+      else
+      {
+          this.signInForm = this.formBuilder.group({
+            username: ['', [Validators.required], [this.validateUsername()]],
+            password: ['', Validators.required]
+        });
+      }
   }
 
   // convenience getter for easy access to form fields

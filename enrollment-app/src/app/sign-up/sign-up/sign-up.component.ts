@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, AsyncValidatorFn, ValidationErrors, AbstractControl } from '@angular/forms';
 import { RegisterClientService } from '../../services/register-client.service';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-sign-up',
@@ -18,15 +18,42 @@ export class SignUpComponent implements OnInit {
   constructor(
     private formBuilder: FormBuilder,
     private client: RegisterClientService,
-    private router: Router
+    private router: Router,
+    private activatedRoute: ActivatedRoute
   ) { 
-    this.signUpForm = this.formBuilder.group({
-      username: ['', [Validators.required], [this.validateUsername()]],
-      first_name: ['', Validators.required],
-      last_name: ['', Validators.required],
-      password: ['', Validators.required]
+    let usernameParam: string = "";
+    let passwordParam: string = "";
+    let firstnameParam: string = "";
+    let lastnameParam: string = "";
+    this.activatedRoute.queryParams.subscribe(params => {
+      usernameParam = params["username"];
+      passwordParam = params["password"];
+      firstnameParam = params["firstname"];
+      lastnameParam = params["lastname"];
     });
-    console.log("construct");
+    console.log(usernameParam + " " + firstnameParam + " " + lastnameParam + " " + passwordParam)
+    if(usernameParam && firstnameParam && lastnameParam && passwordParam)
+    {
+      console.log("Inside then")
+      this.signUpForm = this.formBuilder.group({
+        username: [usernameParam, [Validators.required], [this.validateUsername()]],
+        first_name: [firstnameParam, Validators.required],
+        last_name: [lastnameParam, Validators.required],
+        password: [passwordParam, Validators.required]
+      });
+      console.log("Now calling submit")
+      this.onSubmit()
+    }
+    else
+    {
+      console.log("Inside else")
+      this.signUpForm = this.formBuilder.group({
+        username: ['', [Validators.required], [this.validateUsername()]],
+        first_name: ['', Validators.required],
+        last_name: ['', Validators.required],
+        password: ['', Validators.required]
+      });
+    }
   }
   // convenience getter for easy access to form fields
   get f() { return this.signUpForm!.controls; }
@@ -71,7 +98,7 @@ export class SignUpComponent implements OnInit {
     this.submitted = true;
 
     // stop here if form is invalid
-    if (! this.signUpForm.valid) {
+    if ( this.signUpForm.invalid) {
         // console.log(this.signUpForm.hasError("usernameTaken"))
         console.log("form invalid!")
         return;
@@ -87,6 +114,6 @@ export class SignUpComponent implements OnInit {
     if (response == false) { // shouldn't get this error since already addressed usernameTaken when user enters a username
       this.router.navigate(['/register']); 
     }
-    else this.router.navigate(['.']);
+    else this.router.navigate(['/sign-in']);
   }
 }
