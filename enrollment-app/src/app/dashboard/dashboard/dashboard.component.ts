@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { MatTableDataSource } from '@angular/material/table';
 import { SelectionModel } from '@angular/cdk/collections';
 import { CartClientService } from '../../services/cart-client.service';
@@ -36,12 +36,23 @@ export class DashboardComponent implements OnInit {
   selection = new SelectionModel<PeriodicElement>(true, []);
   loading = false;
   submitted = false;
+  wrkDropQuery:boolean = false;
+  user:string = "";
+  courseCode:string = "";
 
   constructor(
     private cartClient: CartClientService,
     private classlistClient: ClasslistClientService,
     private studentState: StudentStateService,
-  ) {}
+    private activatedRoute: ActivatedRoute
+  ) 
+  { 
+    this.activatedRoute.queryParams.subscribe(params => {
+      this.wrkDropQuery = params['wrkdropquery'];
+      this.user = params['user'];
+      this.courseCode = params['code'];
+    });
+  }
 
   ngOnInit(): void {
     this.classlistClient.getClassList('SP21').asObservable().pipe().subscribe(val =>  {
@@ -49,6 +60,10 @@ export class DashboardComponent implements OnInit {
       console.log(this.classes);
     })  
     this.loadCart();
+    if(this.wrkDropQuery)
+    {
+      this.cartClient.dropClass(this.user,"ECE " + this.courseCode)
+    }
   }
   
   /** Whether the number of selected elements matches the total number of rows. */
@@ -80,6 +95,7 @@ export class DashboardComponent implements OnInit {
     //var sectionList:section[] = [];
     for (let item of this.selection.selected) {
       console.log(item)
+      console
       this.cartClient.dropClass(this.studentState.getUsername(),item.course)      
     }
 
