@@ -1,127 +1,275 @@
 require "socket"
+json = require "json"
 local time = socket.gettime()*1000
 math.randomseed(time)
 math.random(); math.random(); math.random()
 
-local charset = {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's',
-  'd', 'f', 'g', 'h', 'j', 'k', 'l', 'z', 'x', 'c', 'v', 'b', 'n', 'm', 'Q',
-  'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H',
-  'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '1', '2', '3', '4', '5',
-  '6', '7', '8', '9', '0'}
 
-local decset = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
-
-local function stringRandom(length)
-  if length > 0 then
-    return stringRandom(length - 1) .. charset[math.random(1, #charset)]
-  else
-    return ""
-  end
-end
-
-local function decRandom(length)
-  if length > 0 then
-    return decRandom(length - 1) .. decset[math.random(1, #decset)]
-  else
-    return ""
-  end
-end
-
-local function compose_post()
-  local user_index = math.random(1, 962)
-  local username = "username_" .. tostring(user_index)
-  local user_id = tostring(user_index)
-  local text = stringRandom(256)
-  local num_user_mentions = math.random(0, 5)
-  local num_urls = math.random(0, 5)
-  local num_media = math.random(0, 4)
-  local media_ids = '['
-  local media_types = '['
-
-  for i = 0, num_user_mentions, 1 do
-    local user_mention_id
-    while (true) do
-      user_mention_id = math.random(1, 962)
-      if user_index ~= user_mention_id then
-        break
-      end
-    end
-    text = text .. " @username_" .. tostring(user_mention_id)
-  end
-
-  for i = 0, num_urls, 1 do
-    text = text .. " http://" .. stringRandom(64)
-  end
-
-  for i = 0, num_media, 1 do
-    local media_id = decRandom(18)
-    media_ids = media_ids .. "\"" .. media_id .. "\","
-    media_types = media_types .. "\"png\","
-  end
-
-  media_ids = media_ids:sub(1, #media_ids - 1) .. "]"
-  media_types = media_types:sub(1, #media_types - 1) .. "]"
-
-  local method = "POST"
-  local path = "http://localhost:8080/wrk2-api/post/compose"
-  local headers = {}
-  local body
-  headers["Content-Type"] = "application/x-www-form-urlencoded"
-  if num_media then
-    body   = "username=" .. username .. "&user_id=" .. user_id ..
-        "&text=" .. text .. "&media_ids=" .. media_ids ..
-        "&media_types=" .. media_types .. "&post_type=0"
-  else
-    body   = "username=" .. username .. "&user_id=" .. user_id ..
-        "&text=" .. text .. "&media_ids=" .. "&post_type=0"
-  end
-
-  return wrk.format(method, path, headers, body)
-end
-
-local function read_user_timeline()
-  local user_id = tostring(math.random(1, 962))
-  local start = tostring(math.random(0, 100))
-  local stop = tostring(start + 10)
-
-  local args = "user_id=" .. user_id .. "&start=" .. start .. "&stop=" .. stop
+local function visitProf()
+  local profs = {'David Albonesi', 'Khurram Afridi', 'Aaron Wagner', 'Kirstin Petersen', 'Joseph Skovira', 'Alyssa Apsel', 'Adam Bojanczyk', 'Elizabeth Helbling', 'David Hysell', 'Christoph Studer', 'Ronald Kline', 'Jose Martinez', 'Anthony Reeves', 'Charles Seyler', 'Cindy Kao', 'Gookwon "Edward" Suh', 'Ao Tang', 'Peter Jessel', 'C. Lindsay Anderson', 'Silvia Ferrari', 'Adrian Sampson', 'Mark Campbell', 'Harold Craighead', 'Fengqi You', 'David Erickson', 'Joseph Halpern', 'Michel Louge', 'Yudong Chen', 'Zygmunt Haas', 'Michael Kelley', 'Douglas Long', 'Rajit Manohar', 'Michael Spencer', 'Tsuhan Chen', 'Dieter Ast', 'Carl Batt', 'K Bingham Cady', 'Vaclav Kostroun', 'Andrew Myers', 'Ashutosh Saxena', 'Emin Gun Sirer', 'Ramin Zabih', 'Qing Zhao', 'Volodymyr Kuleshov', 'Gennady Shvets', 'Thomas Cleland', 'James Shealy', 'Christopher Batten', 'Vikram Krishnamurthy', 'Park Doing', 'Francesco Monticone', 'David Delchamps', 'Carl Poitras', 'Farhan Rana', 'David Hammer', 'Jayadev Acharya', 'Stephen Wicker', 'Hsiao-Dong Chiang', 'Alyosha Molnar', 'Debdeep Jena', 'Christina Delimitrou', 'Eilyan Bitar', 'Edwin Kan', 'Bruce Land', 'Francesca Parise', 'David Schneider', 'Zhiru Zhang', 'Nils Napp', 'Mert Sabuncu', 'Clifford Pollock', 'Amit Lal', 'Lang Tong', 'Peter Doerschuk', 'Bruce Johnson'}
+  local prof_id = math.random(1, #profs)
+  
+  tokens = string.gmatch(profs[prof_id], "[^%s]+")
+  local args = tokens() .. "%20" .. tokens()
   local method = "GET"
   local headers = {}
-  headers["Content-Type"] = "application/x-www-form-urlencoded"
-  local path = "http://localhost:8080/wrk2-api/user-timeline/read?" .. args
+  local path = "http://localhost:5000/#/roster/prof/" .. args
   return wrk.format(method, path, headers, nil)
 end
 
-local function read_home_timeline()
-    local user_id = tostring(math.random(1, 962))
-    local start = tostring(math.random(0, 100))
-    local stop = tostring(start + 10)
+local function visitCourse()
+  local coursecodes = {
+    [1210, 2100, 2200, 2300, 3140, 3150, 3400, 3600, 4070, 4180, 4250, 4300, 4320, 4360, 4361, 4520, 4670, 4740, 4760, 4840, 4910, 4920, 4950, 4960, 4980, 4990, 4998, 4999, 5130, 5210, 5242, 5310, 5413, 5540, 5555, 5620, 5710, 5720, 5725, 5727, 5745, 5772, 5780, 5880, 5960, 5970, 5999, 6680, 6780, 6931, 6970, 6980, 7920, 2400, 2720, 2980, 3030, 3250, 4060, 4110, 4130, 4200, 4450, 4510, 4530, 4560, 4570, 4750, 4770, 4880, 5010, 5110, 5120, 5180, 5330, 5350, 5414, 5415, 5420, 5470, 5510, 5515, 5520, 5530, 5560, 5660, 5690, 5730, 5740, 5750, 5800]
+  }
+  local coursecode_id = math.random(1, #coursecodes)
+  
+  local args = coursecodes[coursecode_id]
+  local method = "GET"
+  local headers = {}
+  local path = "http://localhost:5000/#/roster/class/ECE/" .. args
+  return wrk.format(method, path, headers, nil)
+end
 
-    local args = "user_id=" .. user_id .. "&start=" .. start .. "&stop=" .. stop
-    local method = "GET"
-    local headers = {}
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-    local path = "http://localhost:8080/wrk2-api/home-timeline/read?" .. args
-    return wrk.format(method, path, headers, nil)
+local function registerUser()
+  local method = "GET"
+  local headers = {}
+  user_number = math.random(1, 100)
+  args = "?username=user" .. tostring(user_number) .. "&password=password" .. toString(user_number) .."&firstname=firstname" .. toString(user_number) .. "&lastname=lastname" .. toString(user_number)
+  local path = "http://localhost:5000/#/sign-up" .. args
+  return wrk.format(method, path, headers, nil)
+end
+
+local function loginUser()
+  local method = "GET"
+  local headers = {}
+  user_number = math.random(1, 100)
+  args = "?username=user" .. tostring(user_number) .. "&password=password" .. toString(user_number)
+  local path = "http://localhost:5000/#/sign-in" .. args
+  return wrk.format(method, path, headers, nil)
+end
+
+local function addCourse()
+  local coursecodes = {
+    [1210, 2100, 2200, 2300, 3140, 3150, 3400, 3600, 4070, 4180, 4250, 4300, 4320, 4360, 4361, 4520, 4670, 4740, 4760, 4840, 4910, 4920, 4950, 4960, 4980, 4990, 4998, 4999, 5130, 5210, 5242, 5310, 5413, 5540, 5555, 5620, 5710, 5720, 5725, 5727, 5745, 5772, 5780, 5880, 5960, 5970, 5999, 6680, 6780, 6931, 6970, 6980, 7920, 2400, 2720, 2980, 3030, 3250, 4060, 4110, 4130, 4200, 4450, 4510, 4530, 4560, 4570, 4750, 4770, 4880, 5010, 5110, 5120, 5180, 5330, 5350, 5414, 5415, 5420, 5470, 5510, 5515, 5520, 5530, 5560, 5660, 5690, 5730, 5740, 5750, 5800]
+   }
+  local data = {
+      ['1210']={ {'LEC 001','LEC 002'}, {},{} },
+      ['2100']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 405','LAB 407','LAB 408','LAB 409','LAB 410','LAB 411','LAB 413','LAB 415','LAB 416'},{} },
+      ['2200']={ {'LEC 001','LEC 002'}, {'LAB 401','LAB 402','LAB 403','LAB 404','LAB 405','LAB 406','LAB 407','LAB 408'},{} },
+      ['2300']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403'},{} },
+      ['3140']={ {'LEC 001'}, {},{'DIS 201','DIS 202','DIS 203','DIS 204','DIS 205'} },
+      ['3150']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404','LAB 405','LAB 406','LAB 407','LAB 408'},{} },
+      ['3400']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404','LAB 405'},{} },
+      ['3600']={ {'LEC 001'}, {},{} },
+      ['4070']={ {'LEC 001','LEC 002'}, {},{} },
+      ['4180']={ {'LEC 001'}, {'LAB 411','LAB 412','LAB 421','LAB 422','LAB 431','LAB 432','LAB 441','LAB 442','LAB 451','LAB 452'},{} },
+      ['4250']={ {'LEC 001','LEC 002'}, {},{} },
+      ['4300']={ {'LEC 001','LEC 002'}, {},{} },
+      ['4320']={ {'LEC 001','LEC 002'}, {'LAB 401','LAB 402'},{'DIS 201','DIS 202'} },
+      ['4360']={ {'LEC 001','LEC 002'}, {},{} },
+      ['4361']={ {}, {'LAB 401','LAB 402','LAB 403'},{} },
+      ['4520']={ {'LEC 001'}, {},{} },
+      ['4670']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['4740']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404','LAB 405'},{'DIS 201'} },
+      ['4760']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403'},{} },
+      ['4840']={ {'LEC 001'}, {},{} },
+      ['4910']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404'},{} },
+      ['4920']={ {}, {},{} },
+      ['4950']={ {'LEC 001'}, {'LAB 401'},{} },
+      ['4960']={ {'LEC 001'}, {},{} },
+      ['4980']={ {}, {},{} },
+      ['4990']={ {}, {},{} },
+      ['4998']={ {}, {},{} },
+      ['4999']={ {}, {},{} },
+      ['5130']={ {'LEC 001'}, {},{} },
+      ['5210']={ {'LEC 001'}, {},{} },
+      ['5242']={ {'LEC 030'}, {},{} },
+      ['5310']={ {'LEC 001','LEC 002'}, {},{} },
+      ['5413']={ {'LEC 001','LEC 030'}, {},{} },
+      ['5540']={ {'LEC 001','LEC 002','LEC 030'}, {},{} },
+      ['5555']={ {'LEC 001'}, {},{} },
+      ['5620']={ {'LEC 001'}, {},{} },
+      ['5710']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5720']={ {'LEC 001'}, {},{} },
+      ['5725']={ {'LEC 001','LEC 002','LEC 030'}, {'LAB 401','LAB 402','LAB 403','LAB 401','LAB 402','LAB 403','LAB 401','LAB 402','LAB 403','LAB 431','LAB 432','LAB 433'},{} },
+      ['5727']={ {}, {'LAB 401'},{} },
+      ['5745']={ {'LEC 001','LEC 030'}, {},{} },
+      ['5772']={ {'LEC 001'}, {'LAB 411','LAB 412','LAB 421','LAB 422','LAB 431','LAB 432','LAB 441','LAB 442','LAB 451','LAB 452'},{} },
+      ['5780']={ {'LEC 001'}, {},{} },
+      ['5880']={ {'LEC 001'}, {},{} },
+      ['5960']={ {'LEC 001','LEC 002','LEC 003'}, {},{} },
+      ['5970']={ {'LEC 001'}, {},{} },
+      ['5999']={ {}, {},{} },
+      ['6680']={ {'LEC 001','LEC 002','LEC 030'}, {'LAB 401','LAB 402','LAB 433'},{} },
+      ['6780']={ {'LEC 001','LEC 002'}, {},{} },
+      ['6931']={ {}, {},{} },
+      ['6970']={ {'LEC 001','LEC 002'}, {},{} },
+      ['6980']={ {'LEC 001'}, {},{} },
+      ['7920']={ {}, {},{} },
+      ['2100']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404'},{} },
+      ['2300']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404'},{} },
+      ['2400']={ {'LEC 001'}, {},{'DIS 201','DIS 202'} },
+      ['2720']={ {'LEC 001'}, {},{'DIS 201','DIS 202','DIS 203'} },
+      ['2980']={ {'LEC 001'}, {},{} },
+      ['3030']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['3250']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['3400']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403','LAB 404','LAB 405'},{} },
+      ['4060']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['4110']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['4130']={ {'LEC 001'}, {},{} },
+      ['4200']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['4450']={ {'LEC 001'}, {},{} },
+      ['4510']={ {'LEC 001'}, {},{} },
+      ['4530']={ {'LEC 001'}, {},{'DIS 201','DIS 202','DIS 203'} },
+      ['4560']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['4570']={ {'LEC 001'}, {'LAB 401'},{} },
+      ['4740']={ {'LEC 001'}, {'LAB 401'},{} },
+      ['4750']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['4760']={ {'LEC 001'}, {'LAB 402','LAB 403','LAB 404','LAB 405','LAB 406'},{} },
+      ['4770']={ {'LEC 001'}, {},{} },
+      ['4880']={ {'LEC 001','LEC 002'}, {'LAB 401'},{} },
+      ['4920']={ {}, {},{} },
+      ['4960']={ {'LEC 001'}, {},{} },
+      ['4980']={ {}, {},{} },
+      ['4998']={ {}, {},{} },
+      ['4999']={ {}, {},{} },
+      ['5010']={ {}, {},{} },
+      ['5110']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5120']={ {'LEC 001'}, {},{'DIS 201','DIS 202'} },
+      ['5180']={ {'LEC 001'}, {},{} },
+      ['5330']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5350']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5413']={ {'LEC 031'}, {},{} },
+      ['5414']={ {'LEC 030','LEC 031'}, {},{} },
+      ['5415']={ {'LEC 030'}, {},{} },
+      ['5420']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5470']={ {'LEC 001'}, {},{} },
+      ['5510']={ {'LEC 001'}, {},{} },
+      ['5515']={ {'LEC 030'}, {},{} },
+      ['5520']={ {'LEC 001'}, {},{} },
+      ['5530']={ {'LEC 001'}, {},{'DIS 201','DIS 202','DIS 203'} },
+      ['5560']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5660']={ {'LEC 001','LEC 002'}, {},{} },
+      ['5690']={ {'LEC 001','LEC 002'}, {'LAB 401'},{} },
+      ['5725']={ {'LEC 001'}, {'LAB 401','LAB 402','LAB 403'},{} },
+      ['5730']={ {'LEC 001'}, {'LAB 404','LAB 406'},{} },
+      ['5740']={ {'LEC 001'}, {},{'DIS 201'} },
+      ['5750']={ {'LEC 001'}, {},{} },
+      ['5800']={ {'LEC 001'}, {},{} }
+  }
+
+  local user_number = math.random(1, 100)            
+  local coursecode_id = math.random(1, #coursecodes)
+  local file = io.open("state.txt", "r+")
+  local content = file:read( "*a" )
+  state = json.decode(content)
+  if state["users"] == nil then
+      state["users"] = {}
   end
+  if state["user" .. toString(user_number)] == nil then
+      state["user"..toString(user_number)] = {coursecodes[coursecode_id]}
+      table.insert(state["users"], "user"..toString(user_number))
+  else
+      table.insert(state["user"..toString(user_number)],  coursecodes[coursecode_id])
+  local content = json.encode(state)
+  file:write( content )
+  io.close( file )
+
+
+
+  
+  local args = "?wrkaddquery=1" .. "&user=user" .. toString(user_number) .. "&code=" .. toString(coursecodes[coursecode_id]) 
+
+  local lecs = data[coursecodes[coursecode_id]][1]
+  if table.getn(lecs) > 0 then
+      local lec_id = math.random(1, #lecs)
+      local lec = lecs[lec_id]
+      args = args .. "&lec=" .. lec
+  end
+  local labs = data[coursecodes[coursecode_id]][2]
+  if table.getn(labs) > 0 then
+      local lab_id = math.random(1, #labs)
+      local lab = labs[lab_id]
+      args = args .. "&lab=" .. lab
+  end
+  local disc = data[coursecodes[coursecode_id]][3]
+  if table.getn(disc) > 0 then
+      local disc_id = math.random(1, #disc)
+      local disc = disc[disc_id]
+      args = args .. "&disc=" .. disc
+  end
+  
+  
+  
+  if table.getn(lecs) == 0 and table.getn(labs) ==  0 and table.getn(disc) == 0 then 
+      return nil
+  end 
+  
+  local method = "GET"
+  local headers = {}
+  local path = "http://localhost:5000/#/dashboard" .. args
+  return wrk.format(method, path, headers, nil)
+end
+
+local function dropCourse()
+  local file = io.open("state.txt", "r+")
+  local content = file:read( "*a" )
+  local state = json.decode(content)
+  local user_number = math.random(1, #state["users"])
+  local user = state["users"][user_number] 
+  local course_id = math.random(1, #state[user])
+  local code = state[user][course_id]
+  table.remove(state[user], course_id)
+  if #state[user] == 0 then
+      table.remove(state["users"], user_number)
+  end
+  local content = json.encode(state)
+  file:write( content )
+  io.close( file )
+
+
+
+  
+  local args = "?wrkdropquery=1" .. "&user=user" .. toString(user_number) .. "&code=" .. toString(code) 
+  
+  local method = "GET"
+  local headers = {}
+  local path = "http://localhost:5000/#/dashboard" .. args
+  return wrk.format(method, path, headers, nil)
+end
+
+
+local function browse()
+  local method = "GET"
+  local headers = {}
+  local path = "http://localhost:5000/#/roster"
+  return wrk.format(method, path, headers, nil)
+end
 
 request = function()
     cur_time = math.floor(socket.gettime())
-    -- local read_home_timeline_ratio = 0.60
-    local read_user_timeline_ratio = 0.20
-    local compose_post_ratio       = 0.80
+    local login_ratio           = 0.10
+    local register_ratio        = 0.05
+    local visitcourse_ratio     = 0.20
+    local visitprof_ratio       = 0.15
+    local addcourse_ratio       = 0.30
+    local dropcourse_ratio      = 0.10
+    local browse_ratio          = 0.10
 
     local coin = math.random()
-    -- if coin < read_home_timeline_ratio then
-    --   return read_home_timeline()
-    -- elseif coin < read_home_timeline_ratio + read_user_timeline_ratio then
-    --   return read_user_timeline()
-    -- else
-    --   return compose_post()
-    -- end
-    if coin < read_user_timeline_ratio then
-        return read_user_timeline()
-      else
-        return compose_post()
-      end
+    if coin < login_ratio then
+      return loginUser()
+    elseif coin < login_ratio + register_ratio then
+      return registerUser()
+    elseif coin < login_ratio + register_ratio + visitcourse_ratio then
+      return visitCourse()
+    elseif coin < login_ratio + register_ratio + visitcourse_ratio + visitprof_ratio then
+      return visitProf()
+    elseif coin < login_ratio + register_ratio + visitcourse_ratio + visitprof_ratio + addcourse_ratio then
+      return addCourse()
+    elseif coin < login_ratio + register_ratio + visitcourse_ratio + visitprof_ratio + addcourse_ratio + dropcourse_ratio then
+      return dropCourse()
+    else
+      return browse()
+    end
   end
