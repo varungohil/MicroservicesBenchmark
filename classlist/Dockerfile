@@ -17,6 +17,7 @@ RUN pip3 install opentelemetry-exporter-jaeger
 RUN pip3 install opentelemetry-propagator-jaeger
 RUN pip3 install opentelemetry-instrumentation
 RUN pip3 install opentelemetry-instrumentation-grpc
+RUN pip3 install opentelemetry-propagator-b3
 # RUN pip3 install jaeger-client
 COPY . .
 CMD ["python", "./class_manager.py"]

@@ -52,7 +52,13 @@ class cartService(
     studentCart_pb2_grpc.cartServicer
 ):
     def addClass(self, request, context):
-        with tracer.start_as_current_span('addClass') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('addClass', context = ctx) as span:
             span.set_attribute("user_name", request.userName)
             span.set_attribute("course_code",request.courseCode )
             print("--Add Class Entered---------------------------------------------------------")
@@ -127,7 +133,13 @@ class cartService(
             return classResponse(success=True)
 
     def dropClass(self, request, context):
-        with tracer.start_as_current_span('dropClass') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('dropClass', context = ctx) as span:
             span.set_attribute("course_code",request.courseCode )
             # span.set_attribute("course_title",request.title )
             print("--Drop Class Entered---------------------------------------------------------")
@@ -150,7 +162,13 @@ class cartService(
             return classResponse(success=False)
 
     def getCart(self, request, context):
-        with tracer.start_as_current_span('getCart') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('getCart', context = ctx) as span:
             print("--Get Cart Entered---------------------------------------------------------")
             span.set_attribute("user_name", request.userName)
             cart = db_2.cartInfo.find_one({"userName": request.userName})["cart"]

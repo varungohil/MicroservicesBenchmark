@@ -18,6 +18,8 @@ RUN pip3 install opentelemetry-exporter-jaeger
 RUN pip3 install opentelemetry-propagator-jaeger
 RUN pip3 install opentelemetry-instrumentation
 RUN pip3 install opentelemetry-instrumentation-grpc
+# RUN pip3 install opentelemetry-exporter-zipkin
+RUN pip3 install opentelemetry-exporter-otlp
 # RUN pip3 install jaeger-client
 
 COPY . .

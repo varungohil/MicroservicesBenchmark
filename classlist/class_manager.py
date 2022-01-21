@@ -24,6 +24,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+# from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "classlist"}))
 trace.set_tracer_provider(provider)
@@ -35,21 +36,9 @@ trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(jaeger_exporter)
 )
 tracer = trace.get_tracer(__name__)
-# from jaeger_client import Config
-# config = Config(
-#     config={ # usually read from some yaml config
-#         'sampler': {
-#             'type': "const",
-#             'param': 1,
-#         },
-#         'local_agent': {
-#             'reporting_host': 'jaeger-agent',
-#             'reporting_port': '6831',
-#         }
-#     },
-#     service_name='classlist',
-# )
-# tracer = config.initialize_tracer()
+# prop = TraceContextTextMapPropagator()
+# carrier = {}
+
 
 client = pymongo.MongoClient("classlist_db",27017)
 # client = pymongo.MongoClient("localhost",27018)
@@ -66,7 +55,13 @@ class classlistService(
     classList_pb2_grpc.classlistServicer
 ):
     def getClassList(self, request, context):
-        with tracer.start_as_current_span('getClassList') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('getClassList', context = ctx) as span:
             print("Inside getClassList - " + request.year)
             span.set_attribute("year", request.year)
             classes = []
@@ -95,6 +90,7 @@ class classlistService(
                 classes.append(Class(title=class_['titles'],code=class_['course_code'], 
                         subject=class_['subject'], nbr=class_['nbr'], credit=str(class_['credit']), description=class_['description'], sections=sections, recommendation=class_['recommendation']
                     ))
+            print(len(classes))
 
             return classListResponse(classes=classes)
 
@@ -298,6 +294,9 @@ if __name__ == "__main__":
         scrape_classes("SP21")
         scrape_classes("FA21")
         update_db()
+    # scrape_classes("SP21")
+    # scrape_classes("FA21")
+    # update_db()
     print(TOTAL_ECE_CLASSES)
     print("Serving")
     serve()

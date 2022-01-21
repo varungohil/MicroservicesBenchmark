@@ -56,7 +56,13 @@ class registerService(
     studentRegister_pb2_grpc.registerServicer
 ):
     def validateUsername(self, request, context):
-        with tracer.start_as_current_span('validateUsername') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('validateUsername', context = ctx) as span:
             span.set_attribute("user_name",request.userName)
             if( db.studentInfo.count_documents({"userName":request.userName}) > 0 ):
                 print("failed name validaion")
@@ -66,7 +72,13 @@ class registerService(
                 return Response(success=True)
     
     def validatePassword(self, request, context):
-        with tracer.start_as_current_span('validatePassword') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('validatePassword', context = ctx) as span:
             span.set_attribute("user_name",request.userName)
             pwd = db.studentInfo.find_one({"userName":request.userName})["password"]
             if( not bcrypt.checkpw(request.password,pwd) ):
@@ -77,7 +89,13 @@ class registerService(
                 return Response(success=True)
 
     def register(self, request, context):
-        with tracer.start_as_current_span('register') as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span('register', context = ctx) as span:
             span.set_attribute("user_name",request.userName)
             span.set_attribute("first_name",request.firstName)
             span.set_attribute("last_name",request.lastName)

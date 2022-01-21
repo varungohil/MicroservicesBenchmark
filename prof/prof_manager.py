@@ -16,6 +16,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 # Jaeger python client --------------------------------------------
 # from jaeger_client import Config
@@ -40,12 +41,14 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "prof"}))
 trace.set_tracer_provider(provider)
 # print("Created provider")
-jaeger_exporter = JaegerExporter(
-    agent_host_name="jaeger-agent",
-    agent_port=6831,
-)
+# exporter = JaegerExporter(
+#     agent_host_name="jaeger-agent",
+#     agent_port=6831,
+# )
+# exporter = ZipkinExporter(endpoint="http://jaeger-agent:9411/api/v2/spans");
+exporter = OTLPSpanExporter(endpoint="http://otel-collector:4317")
 trace.get_tracer_provider().add_span_processor(
-    BatchSpanProcessor(jaeger_exporter)
+    BatchSpanProcessor(exporter)
 )
 tracer = trace.get_tracer(__name__)
 # print("Created exporter")
@@ -75,8 +78,14 @@ class profService(
     prof_pb2_grpc.profServicer
 ):
     def getProf(self, request, context):
-        # with tracer.start_span('getProf') as span:
-        with tracer.start_as_current_span("getProf") as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        print(traceflags)
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span("getProf", context = ctx) as span:
             print("Inside getProf")
             prof_ = db.profInfo.find_one({'name': request.name})
             span.set_attribute("prof_name", request.name)
@@ -91,8 +100,14 @@ class profService(
                         wouldTakeAgain=prof_['would_take_again'], levelOfDifficulty=prof_['level_of_difficulty'], topTags=prof_['top_tags'], reviews=prof_['reviews'], numReviews=prof_['num_reviews']))
     
     def getProfList(self, request, context):
-        # with tracer.start_span('getProfList') as span:
-        with tracer.start_as_current_span("getProfList") as span:
+        metadata = dict(context.invocation_metadata())
+        traceid = metadata['traceid']
+        spanid = metadata['spanid']
+        traceflags = metadata['traceflags']
+        print(traceflags)
+        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
+        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+        with tracer.start_as_current_span("getProfList", context = ctx) as span:
             print("getProfList----------------------------------------------------")
             profs = []
             for prof_ in db.profInfo.find({}):
@@ -246,13 +261,15 @@ def serve():
 
 if __name__ == "__main__":
     TOTAL_ECE_PROFS=74 # Hard coded for now cause not all prof has a RMP page
-    print(db.profCounts.find_one({})["count"])
+    # print(db.profCounts.find_one({})["count"])
     if ( db.profCounts.find_one({})["count"] != TOTAL_ECE_PROFS ):
         print("Scraping")
         db.profInfo.delete_many({}) # Always reset 
         db.profCounts.delete_many({}) # Always reset 
         scrape_profs()
         update_db()
+    # scrape_profs()
+    # update_db()
     print(db.profCounts.find_one({})["count"])
     
     serve()

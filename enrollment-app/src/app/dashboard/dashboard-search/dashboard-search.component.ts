@@ -5,6 +5,7 @@ import { CartClientService } from '../../services/cart-client.service';
 import { StudentStateService } from '../../services/student-state.service';
 import { Class, Section } from '../../../../proto/classList_pb';
 import { section } from '../../../../proto/studentCart_pb';
+import { TracerService } from "../../services/tracer.service"
 
 @Component({
   selector: 'app-dashboard-search',
@@ -17,6 +18,7 @@ export class DashboardSearchComponent {
   values = ''
   searchResults: Class[] = [];
   wrkAddQuery:boolean = false;
+  private tracerService = new TracerService();
 
   
   constructor(public dialog: MatDialog, private router: Router, private route: ActivatedRoute) { 
@@ -31,19 +33,6 @@ export class DashboardSearchComponent {
         console.log("Calling open dialog")
         this.openDialog(this.searchResults[0]);
       }
-      // console.log(this.wrkAddQuery + " " + this.courseCode)
-      // if(this.wrkQuery){
-      //   this.classclient.getClassList("SP21").asObservable().pipe().subscribe(val =>  {
-      //     console.log("val = " + val)
-      //     this.wrkClasses = val;
-      //   })
-      //   console.log("wrkQuery is true")
-      //   console.log("classes length = " + this.wrkClasses.length)
-      //   this.searchResults = this.wrkClasses.filter(
-      //     class_ => ( class_.getTitle().includes(this.courseCode) || class_.getCode().includes(this.courseCode) || class_.getTitle().toLowerCase().includes(this.courseCode.toLowerCase()) || class_.getCode().toLowerCase().includes(this.courseCode.toLowerCase()) ));
-      //   console.log("search Results [0] = " + this.searchResults[0]);
-      //   this.openDialog(this.searchResults[0]);
-      // }
     }
 
   // ngOnInit() :void {
@@ -54,27 +43,35 @@ export class DashboardSearchComponent {
   // }
 
   openDialog(class_: Class): void {
-    const dialogRef = this.dialog.open(DialogSearch, {
-      data: class_
+    const span = this.tracerService.getTracer().startSpan('openDialog', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      const dialogRef = this.dialog.open(DialogSearch, {
+        data: class_
+      });
+  
+      dialogRef.afterClosed().subscribe(result => {
+        console.log('The dialog was closed');
+        this.addClassEvent.emit(result);
+        console.log(result);
+      });
     });
-
-    dialogRef.afterClosed().subscribe(result => {
-      console.log('The dialog was closed');
-      this.addClassEvent.emit(result);
-      console.log(result);
-    });
+  span.end();
   }
 
   ngAfterViewInit(): void {
   }
 
   search(event: any) {
-    this.searchResults = []
-    let query = event.target.value; 
-    if (query != '') {
-      this.searchResults = this.classes.filter(
-        class_ => ( class_.getTitle().includes(query) || class_.getCode().includes(query) || class_.getTitle().toLowerCase().includes(query.toLowerCase()) || class_.getCode().toLowerCase().includes(query.toLowerCase()) ));
-    }
+    const span = this.tracerService.getTracer().startSpan('search-dashboard', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      this.searchResults = []
+      let query = event.target.value; 
+      if (query != '') {
+        this.searchResults = this.classes.filter(
+          class_ => ( class_.getTitle().includes(query) || class_.getCode().includes(query) || class_.getTitle().toLowerCase().includes(query.toLowerCase()) || class_.getCode().toLowerCase().includes(query.toLowerCase()) ));
+      }
+    });
+    span.end();
   }
 
   visitClass(classNum: any) {
@@ -102,6 +99,7 @@ export class DialogSearch {
   lec:string = "";
   lab:string = "";
   dis:string = "";
+  private tracerService = new TracerService();
 
   constructor(
     public dialogRef: MatDialogRef<DialogSearch>,
@@ -109,9 +107,9 @@ export class DialogSearch {
       this.route.queryParams.subscribe(params => {
         this.wrkAddQuery = params['wrkaddquery'];
         this.courseCode = "ECE " + params['code'];
-        this.lec = "LEC 00" + params['lec']
-        this.dis = "DIS 20" + params['dis']
-        this.lab = "LAB 40" + params['lab']
+        this.lec =  params['lec']
+        this.dis =  params['dis']
+        this.lab =  params['lab']
         this.user = params['user']
       });
       console.log(this.wrkAddQuery + " " + this.courseCode + " " + this.user)
@@ -123,19 +121,19 @@ export class DialogSearch {
         // for(var sec in this.secs)
         // {
         //   console.log(sec)
-        if(this.lec != "LEC 00")
+        if(this.lec != "")
         {
           var newsection:section = new section();
           newsection.setSec(this.lec);
           secslist[0] = newsection
         }
-        if(this.lab != "LAB 40")
+        if(this.lab != "")
         {
           var newsection:section = new section();
           newsection.setSec(this.lab);
           secslist[1] = newsection
         }
-        if(this.dis != "DIS 20")
+        if(this.dis != "")
         {
           var newsection:section = new section();
           newsection.setSec(this.dis);
@@ -158,8 +156,7 @@ export class DialogSearch {
         if (this.lecs.length > 0) this.selectedLec = this.lecs[0].getTitle(); 
         if (this.labs.length > 0) this.selectedLab = this.labs[0].getTitle(); 
         if (this.discs.length > 0) this.selectedDis = this.discs[0].getTitle(); 
-      }
-      
+      }    
     }
 
   onNoClick(): void {
@@ -167,34 +164,38 @@ export class DialogSearch {
   }
 
   onSubmit() {
-    var sectionList:section[] = [];
-    //if( this.selectedLec != '') this.lecSuccess = this.cartClient.addClass(this.student.getUsername(), this.data.getCode(), this.selectedLec );
-    let i=0
-    if( this.selectedLec != '') {
-      console.log(this.selectedLec)
-      var newsection:section = new section();
-      newsection.setSec(this.selectedLec);
-      sectionList[i] = newsection;
-      i++;
-    } 
-    if( this.selectedLab != '') {
-      console.log(this.selectedLab)
-      var newsection:section = new section();
-      newsection.setSec(this.selectedLab);
-      sectionList[i] = newsection;
-      i++;
-    } 
-    if( this.selectedDis != '') {
-      console.log(this.selectedDis)
-      var newsection:section = new section();
-      newsection.setSec(this.selectedDis);
-      sectionList[i] = newsection;
-      i++;
-    } 
-    console.log("Section List = " + sectionList)
-
-    this.cartClient.addClass(this.student.getUsername(), this.data.getCode(),sectionList );
-    // alert main component about the dialog result. 
-    this.dialogRef.close(this.selectedLec != ''||this.selectedLec != ''||this.selectedLec != '');
+    const span = this.tracerService.getTracer().startSpan('onSubmit-dialog', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      var sectionList:section[] = [];
+      //if( this.selectedLec != '') this.lecSuccess = this.cartClient.addClass(this.student.getUsername(), this.data.getCode(), this.selectedLec );
+      let i=0
+      if( this.selectedLec != '') {
+        console.log(this.selectedLec)
+        var newsection:section = new section();
+        newsection.setSec(this.selectedLec);
+        sectionList[i] = newsection;
+        i++;
+      } 
+      if( this.selectedLab != '') {
+        console.log(this.selectedLab)
+        var newsection:section = new section();
+        newsection.setSec(this.selectedLab);
+        sectionList[i] = newsection;
+        i++;
+      } 
+      if( this.selectedDis != '') {
+        console.log(this.selectedDis)
+        var newsection:section = new section();
+        newsection.setSec(this.selectedDis);
+        sectionList[i] = newsection;
+        i++;
+      } 
+      console.log("Section List = " + sectionList)
+  
+      this.cartClient.addClass(this.student.getUsername(), this.data.getCode(),sectionList );
+      // alert main component about the dialog result. 
+      this.dialogRef.close(this.selectedLec != ''||this.selectedLec != ''||this.selectedLec != '');
+    });
+    span.end();
   }
 }

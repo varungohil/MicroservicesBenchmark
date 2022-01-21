@@ -4,6 +4,7 @@ import { Professor } from '../../../../proto/prof_pb';
 import { ActivatedRoute, Router } from '@angular/router';
 import { listLazyRoutes } from '@angular/compiler/src/aot/lazy_routes';
 import { ClasslistClientService } from '../../services/classlist-client.service';
+import { TracerService } from "../../services/tracer.service"
 
 @Component({
   selector: 'app-roster-search',
@@ -19,77 +20,101 @@ export class RosterSearchComponent implements OnInit {
   noClassMatch: boolean = false;
   noProfMatch: boolean = false;
   private client: ClasslistClientService = new ClasslistClientService(); 
+  private tracerService = new TracerService()
   
 
-  constructor(private router: Router, private route: ActivatedRoute) { this.classes = []; this.profs = []; }
+  constructor(private router: Router, private route: ActivatedRoute) { 
+    this.classes = []; 
+    this.profs = [];
+  }
 
   ngOnInit(): void {
-    this.client.getClassList("all").asObservable().subscribe(val =>  {
-      this.allClasses = val;
-      // console.log(this.classes);
+    const span = this.tracerService.getTracer().startSpan('ngOnInit-rostersearch', undefined , this.tracerService.getActiveContext() );
+    this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      this.client.getClassList("all").asObservable().subscribe(val =>  {
+        this.allClasses = val;
+      })
     })
-    // this.client.getClassList("SP21").asObservable().subscribe(val =>  {
-    //   console.log("search init");
-    //   console.log(val);
-    //   this.allClasses = [...this.allClasses, ...val];
-    //   // console.log(this.classes);
-    // })
+    span.end()
   }
 
   search(event: any) {
-    this.searchResults = []
-    let query = event.target.value; 
-    if (query != '') {
-      this.searchResults = this.allClasses.filter(
-        class_ => ( class_.getTitle().includes(query) || class_.getCode().includes(query) || class_.getTitle().toLowerCase().includes(query.toLowerCase()) || class_.getCode().toLowerCase().includes(query.toLowerCase()) ));
-        if(this.searchResults.length == 0)
-        {
-          this.noClassMatch = true;
-        }
-        else
-        {
+    const span = this.tracerService.getTracer().startSpan('search',  undefined , this.tracerService.getActiveContext());
+    this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => 
+      {
+        this.searchResults = []
+        let query = event.target.value; 
+        span.setAttribute("query", query);
+        if (query != '') {
+          this.searchResults = this.allClasses.filter(
+            class_ => ( class_.getTitle().includes(query) || class_.getCode().includes(query) || class_.getTitle().toLowerCase().includes(query.toLowerCase()) || class_.getCode().toLowerCase().includes(query.toLowerCase()) ));
+            if(this.searchResults.length == 0)
+            {
+              this.noClassMatch = true;
+            }
+            else
+            {
+              this.noClassMatch = false;
+            }
+          }
+        else{
           this.noClassMatch = false;
         }
       }
-    else{
-      this.noClassMatch = false;
-    }
+    )
+
+    span.end()
   }
 
   visitClass(classNum: any) {
-    this.router.navigate(
-      ['class/ECE/'+classNum], { relativeTo: this.route },
-    );
+    const span = this.tracerService.getTracer().startSpan('visitClass',  undefined , this.tracerService.getActiveContext());
+    this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      span.setAttribute("coursecode", classNum);
+      span.end();
+      this.router.navigate(
+        ['class/ECE/'+classNum], { relativeTo: this.route },
+      );
+    })
   }
 
   searchProf(event: any) {
-    this.searchProfResults = []
-    let query = event.target.value; 
-    if (query != '') {
-      console.log(this.profs)
-      console.log(query)
-      this.searchProfResults = this.profs.filter(
-        prof_ => ( prof_.getName().includes(query) || prof_.getName().toLowerCase().includes(query.toLowerCase()) ));
-      if(this.searchProfResults.length == 0)
-      {
-        this.noProfMatch = true;
+    const span = this.tracerService.getTracer().startSpan('searchProf',  undefined , this.tracerService.getActiveContext());
+    this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      this.searchProfResults = []
+      let query = event.target.value; 
+      span.setAttribute("query", query);
+      if (query != '') {
+        console.log(this.profs)
+        console.log(query)
+        this.searchProfResults = this.profs.filter(
+          prof_ => ( prof_.getName().includes(query) || prof_.getName().toLowerCase().includes(query.toLowerCase()) ));
+        if(this.searchProfResults.length == 0)
+        {
+          this.noProfMatch = true;
+        }
+        else
+        {
+          this.noProfMatch = false;
+        }
+        console.log("noProfMatch = " + this.noProfMatch);
       }
-      else
-      {
+      else{
         this.noProfMatch = false;
       }
-      console.log("noProfMatch = " + this.noProfMatch);
-    }
-    else{
-      this.noProfMatch = false;
-    }
+      span.end();
+    })
   }
 
   visitProf(profName: any) {
-    console.log(profName)
-    this.router.navigate(
-      ['prof/'+profName], { relativeTo: this.route },
-    );
+    const span = this.tracerService.getTracer().startSpan('visitProf',  undefined , this.tracerService.getActiveContext());
+    this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      span.setAttribute("prof", profName);
+      console.log(profName);
+      span.end();
+      this.router.navigate(
+        ['prof/'+profName], { relativeTo: this.route },
+      );
+    })
   }
 
 }

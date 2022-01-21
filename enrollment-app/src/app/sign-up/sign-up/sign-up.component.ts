@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, AsyncValidatorFn, ValidationErrors, AbstractControl } from '@angular/forms';
 import { RegisterClientService } from '../../services/register-client.service';
 import { Router, ActivatedRoute } from '@angular/router';
+import { TracerService } from "../../services/tracer.service"
 
 @Component({
   selector: 'app-sign-up',
@@ -14,6 +15,7 @@ export class SignUpComponent implements OnInit {
   submitted = false;
   returnUrl?: string;
   showMessage = false;
+  private tracerService = new TracerService();
 
   constructor(
     private formBuilder: FormBuilder,
@@ -53,7 +55,7 @@ export class SignUpComponent implements OnInit {
         last_name: ['', Validators.required],
         password: ['', Validators.required]
       });
-    }
+    } 
   }
   // convenience getter for easy access to form fields
   get f() { return this.signUpForm!.controls; }
@@ -94,6 +96,8 @@ export class SignUpComponent implements OnInit {
   }
 
   onSubmit() {
+    const span = this.tracerService.getTracer().startSpan('onSubmit-signup', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
     // console.log("onSubmit");
     this.submitted = true;
 
@@ -101,6 +105,7 @@ export class SignUpComponent implements OnInit {
     if ( this.signUpForm.invalid) {
         // console.log(this.signUpForm.hasError("usernameTaken"))
         console.log("form invalid!")
+        span.end();
         return;
     }
 
@@ -112,8 +117,13 @@ export class SignUpComponent implements OnInit {
     let response = this.client.register(fusername, fpwd, ffirstname, flastname);
     console.log(response);
     if (response == false) { // shouldn't get this error since already addressed usernameTaken when user enters a username
+      span.end();
       this.router.navigate(['/register']); 
     }
-    else this.router.navigate(['/sign-in']);
+    else {
+      span.end(); 
+      this.router.navigate(['/sign-in']);
+    }
+    });
   }
 }

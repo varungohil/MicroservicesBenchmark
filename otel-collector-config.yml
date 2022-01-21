@@ -1,0 +1,22 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+        cors_allowed_origins:
+        - "http://localhost:5000"
+
+processors:
+  batch:
+
+exporters:
+  jaeger:
+    endpoint: jaeger-agent:14250
+    insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [jaeger]

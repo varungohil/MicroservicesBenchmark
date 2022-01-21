@@ -7,6 +7,7 @@ import { StudentStateService } from '../../services/student-state.service';
 import { cartSingleResponse } from '../../../../proto/studentCart_pb';
 import { Class } from '../../../../proto/classList_pb';
 import { ClasslistClientService } from '../../services/classlist-client.service';
+import { TracerService } from "../../services/tracer.service"
 
 export interface PeriodicElement {
   position: number;
@@ -39,6 +40,7 @@ export class DashboardComponent implements OnInit {
   wrkDropQuery:boolean = false;
   user:string = "";
   courseCode:string = "";
+  private tracerService = new TracerService();
 
   constructor(
     private cartClient: CartClientService,
@@ -51,7 +53,7 @@ export class DashboardComponent implements OnInit {
       this.wrkDropQuery = params['wrkdropquery'];
       this.user = params['user'];
       this.courseCode = params['code'];
-    });
+    }); 
   }
 
   ngOnInit(): void {
@@ -91,16 +93,20 @@ export class DashboardComponent implements OnInit {
   }
 
   dropSubmit() {
-    console.log(this.selection.selected.length)
-    //var sectionList:section[] = [];
-    for (let item of this.selection.selected) {
-      console.log(item)
-      console
-      this.cartClient.dropClass(this.studentState.getUsername(),item.course)      
-    }
-
-    if(this.selection.selected != undefined && this.selection.selected != []) this.loadCart();
-    this.selection.clear()
+    const span = this.tracerService.getTracer().startSpan('dropSubmit', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      console.log(this.selection.selected.length)
+      //var sectionList:section[] = [];
+      for (let item of this.selection.selected) {
+        console.log(item)
+        console
+        this.cartClient.dropClass(this.studentState.getUsername(),item.course)      
+      }
+  
+      if(this.selection.selected != undefined && this.selection.selected != []) this.loadCart();
+      this.selection.clear();
+    });
+    span.end();
   }
 
   addSubmit(event: any) {
@@ -112,16 +118,20 @@ export class DashboardComponent implements OnInit {
   }
 
   loadCart() {
-    this.cartClient.getCart(this.studentState.getUsername()).asObservable().subscribe(val =>  {
-      this.ELEMENT_DATA = [];
-      this.cart = val;
-      for (let i=0; i<this.cart.length; i++) {
-        var element : PeriodicElement = { position:i+1, course: this.cart[i].getCoursecode(), name: this.cart[i].getTitle(), units: this.cart[i].getCredit(), //status: "Enrolled",
-         //number: this.cart[i].getClassnumber(), 
-         section:this.cart[i].getSection(), days: this.cart[i].getDays(), time: this.cart[i].getTime(), instructor:this.cart[i].getInstructor() } ;
-        this.ELEMENT_DATA.push(element);
-      }
-      this.dataSource.data = this.ELEMENT_DATA;
+    const span = this.tracerService.getTracer().startSpan('loadCart', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+      this.cartClient.getCart(this.studentState.getUsername()).asObservable().subscribe(val =>  {
+        this.ELEMENT_DATA = [];
+        this.cart = val;
+        for (let i=0; i<this.cart.length; i++) {
+          var element : PeriodicElement = { position:i+1, course: this.cart[i].getCoursecode(), name: this.cart[i].getTitle(), units: this.cart[i].getCredit(), //status: "Enrolled",
+           //number: this.cart[i].getClassnumber(), 
+           section:this.cart[i].getSection(), days: this.cart[i].getDays(), time: this.cart[i].getTime(), instructor:this.cart[i].getInstructor() } ;
+          this.ELEMENT_DATA.push(element);
+        }
+        this.dataSource.data = this.ELEMENT_DATA;
+      });
     });
+    span.end();
   }
 }

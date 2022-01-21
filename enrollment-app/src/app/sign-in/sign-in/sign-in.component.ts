@@ -3,7 +3,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { AsyncValidatorFn, ValidationErrors, AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RegisterClientService } from '../../services/register-client.service';
 import { StudentStateService } from '../../services/student-state.service';
-
+import { TracerService } from "../../services/tracer.service"
 
 @Component({
   selector: 'app-sign-in',
@@ -18,13 +18,14 @@ export class SignInComponent implements OnInit {
   showMessage = false;
   pwdNotMatch = false;
   username: string= "";
+  private tracerService = new TracerService();
 
   constructor(
       private formBuilder: FormBuilder,
       private client: RegisterClientService,
       private studentState: StudentStateService,
       private router: Router,
-      private activatedRoute: ActivatedRoute
+      private activatedRoute: ActivatedRoute,
   ) {
       let usernameParam: string = "";
       let passwordParam: string = "";
@@ -81,9 +82,12 @@ export class SignInComponent implements OnInit {
   }
 
   async onSubmit() {
+    const span = this.tracerService.getTracer().startSpan('onSubmit', undefined, this.tracerService.getActiveContext());
+    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), async () => {
       this.submitted = true;
       // stop here if form is invalid
       if (this.signInForm!.invalid) {
+          span.end();
           return;
       }
 
@@ -96,10 +100,13 @@ export class SignInComponent implements OnInit {
         this.pwdNotMatch = false;
         this.studentState.setUsername(this.username);
         this.studentState.setcurrentUserName(this.username);
+        span.end();
         this.router.navigate(['/dashboard']);
       }else{
         this.pwdNotMatch = true;
+        span.end();
         this.router.navigate(['/sign-in']);
       }
+    });
   }
 }
