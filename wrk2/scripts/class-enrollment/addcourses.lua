@@ -136,7 +136,7 @@ request = function()
 
 
     
-    local args = "?wrkaddquery=1" .. "&user=user" .. toString(user_number) .. "&code=" .. toString(coursecodes[coursecode_id]) 
+    local args = "?username=user" .. toString(user_number) .. "&code=" .. toString(coursecodes[coursecode_id]) 
 
     local lecs = data[coursecodes[coursecode_id]][1]
     if table.getn(lecs) > 0 then
@@ -163,8 +163,8 @@ request = function()
         return nil
     end 
     
-    local method = "GET"
+    local method = "POST"
     local headers = {}
-    local path = "http://localhost:5000/#/dashboard" .. args
+    local path = "http://localhost:5000/wrk2-api/addclass" .. args
     return wrk.format(method, path, headers, nil)
   end

@@ -26,10 +26,10 @@ request = function()
 
 
     
-    local args = "?wrkdropquery=1" .. "&user=user" .. toString(user_number) .. "&code=" .. toString(code) 
+    local args = "?username=user" .. toString(user_number) .. "&code=" .. toString(code) 
     
-    local method = "GET"
+    local method = "POST"
     local headers = {}
-    local path = "http://localhost:5000/#/dashboard" .. args
+    local path = "http://localhost:5000/wrk2-api/addclass" .. args
     return wrk.format(method, path, headers, nil)
   end
