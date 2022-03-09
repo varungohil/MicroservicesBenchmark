@@ -22,6 +22,8 @@ services:
     networks:
       - envoymesh
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1  
 
   register:
     container_name: register
@@ -31,6 +33,8 @@ services:
     networks:
       - envoymesh
     restart: always
+    environment:
+      - PYTHONUNBUFFERED=1  
     depends_on:
       mongodb-register:
         condition: service_started
