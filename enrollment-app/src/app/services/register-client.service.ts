@@ -36,17 +36,19 @@ export class RegisterClientService {
   }
 
   async checkUsername(name : string){
-    const span = this.tracerService.getTracer().startSpan('checkUsername', undefined, this.tracerService.getActiveContext());
-    var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), async () => {
-      span.setAttribute("username", name);
+    // const span = this.tracerService.getTracer().startSpan('checkUsername', undefined, this.tracerService.getActiveContext());
+    // var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), async () => {
+    //   span.setAttribute("username", name);
       console.log("check username " + name);
       var request = new Request; 
       request.setUsername(name);
-      var response = this.client.validateUsername(request,{'custom-header-1': 'value1', 'traceid':span.spanContext().traceId, 'spanid':span.spanContext().spanId, 'traceflags':span.spanContext().traceFlags.toString()})
+      var response = this.client.validateUsername(request,{'custom-header-1': 'value1'})//, 'traceid':span.spanContext().traceId, 'spanid':span.spanContext().spanId, 'traceflags':span.spanContext().traceFlags.toString()})
     
       await response.then((res) => {
         var result = res.getSuccess();
+        console.log("result = " + result);
         this.updateResult(result); 
+        console.log("validationResult = " + this.validationResult);
       })
       
       wait(4*1000).then(() => {
@@ -54,10 +56,10 @@ export class RegisterClientService {
       }).catch(() => {
         console.log("Wait is over, callback")
       });
-    })  
+    // })  
     console.log("ccheckUsername " + this.validationResult);
-    span.setAttribute("validationResult", this.validationResult);
-    span.end()
+    // span.setAttribute("validationResult", this.validationResult);
+    // span.end()
     return this.validationResult;
   }
 

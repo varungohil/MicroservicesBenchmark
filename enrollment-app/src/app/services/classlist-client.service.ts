@@ -42,11 +42,9 @@ export class ClasslistClientService {
           result.next(response.getClassesList());
         }
       )
-      span.end();
-      return result;
-
+      return result
     })
-    
+    span.end();
     return result;
   }
 }

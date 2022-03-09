@@ -18,6 +18,8 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
 provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "cart"}))
 trace.set_tracer_provider(provider)
 jaeger_exporter = JaegerExporter(
@@ -28,21 +30,6 @@ trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(jaeger_exporter)
 )
 tracer = trace.get_tracer(__name__)
-# from jaeger_client import Config
-# config = Config(
-#     config={ # usually read from some yaml config
-#         'sampler': {
-#             'type': "const",
-#             'param': 1,
-#         },
-#         'local_agent': {
-#             'reporting_host': 'jaeger-agent',
-#             'reporting_port': '6831',
-#         }
-#     },
-#     service_name='cart',
-# )
-# tracer = config.initialize_tracer()
 
 client = pymongo.MongoClient("classlist_db",27017)
 client_2 = pymongo.MongoClient("cart_db",27017)
@@ -51,37 +38,25 @@ db_2 = client_2.cart
 class cartService(
     studentCart_pb2_grpc.cartServicer
 ):
-    def addClass(self, request, context):
-        metadata = dict(context.invocation_metadata())
-        traceid = metadata['traceid']
-        spanid = metadata['spanid']
-        traceflags = metadata['traceflags']
-        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
-        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+    def addClass(self, request, metadata):
+        ctx = TraceContextTextMapPropagator().extract(dict(metadata.invocation_metadata()))
         with tracer.start_as_current_span('addClass', context = ctx) as span:
             span.set_attribute("user_name", request.userName)
             span.set_attribute("course_code",request.courseCode )
-            print("--Add Class Entered---------------------------------------------------------")
             if(db.classInfo.find_one({"course_code":request.courseCode})["year"] != "SP21"):
                 return classResponse(success=False)
             size = db.classInfo.find_one({"course_code":request.courseCode})["size"]
-            print(str(request.courseCode) + " size = " + str(size))
             if ( size == 0 ): # class is full
                 return classResponse(success=False)
             title = db.classInfo.find_one({"course_code":request.courseCode})["titles"]
             span.set_attribute("course_title",title )
             credit = db.classInfo.find_one({"course_code":request.courseCode})["credit"]  
             course_info = db.classInfo.find_one({"course_code":request.courseCode},{"course_info":1})["course_info"]
-            # print(str(title) + " " + str(credit) + " " + str(course_info))
-            # print(request.sectionList)
-            print(request.sectionList)
             for section in request.sectionList:
                 for course in course_info:
                     if course["section"] == section.sec:
-                        # print(course)
                         cart = db_2.cartInfo.find_one({"userName":request.userName})["cart"]
                         courseTime = course["times"].split(" ")
-                        print(courseTime)
                         del courseTime[1]
                         # changing time to int and adding 12 hoursr if PM
                         for i in range(len(courseTime)):
@@ -95,9 +70,7 @@ class cartService(
                                 return classResponse(success=False)  # return false if class already exists in the cart
                             time = Class["time"].split(" ")
                             del time[1]
-                            print(f'Class["days"]={Class["days"]} and course["days"]={course["days"]}')
                             if Class["days"] in course["days"]: # only check for time conflict if there is an operlap of days
-                                print(time)
                                 for i in range(len(time)):
                                     time[i] = time[i].replace(":","")
                                     if "am" in time[i]:
@@ -110,8 +83,6 @@ class cartService(
                                             time[i] = int (time[i][0:time[i].find('pm')])
                                         else:
                                             time[i] = int (time[i][0:time[i].find('pm')]) + 1200
-                                print(time)
-                                print(courseTime)
                                 if ( time[1] > courseTime[0] and time[0] < courseTime[1] ):
                                     # need to remove all existing section of the course
                                     i = 0 # used to find the position of the class in the cart which will be removed
@@ -126,23 +97,13 @@ class cartService(
                         request_1 = {"courseCode":request.courseCode,"title":title,"section":section.sec,"classNumber":course["class_numbers"],"days":course["days"],"time":course["times"], "instructor":course["instructors"],"credit":credit}
                         cart.append(request_1)
                         db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cart}}) # updating the cart of the user after adding the new class
-                        # print(db_2.cartInfo.find_one({"userName":request.userName}))
-            # print(request.courseCode)
             db.classInfo.update_one( {"course_code":request.courseCode}, {"$inc" :{"size":-1} } ) # decrement size of the class
-            print("--Add Class Exited---------------------------------------------------------")
             return classResponse(success=True)
 
-    def dropClass(self, request, context):
-        metadata = dict(context.invocation_metadata())
-        traceid = metadata['traceid']
-        spanid = metadata['spanid']
-        traceflags = metadata['traceflags']
-        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
-        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+    def dropClass(self, request, metadata):
+        ctx = TraceContextTextMapPropagator().extract(dict(metadata.invocation_metadata()))
         with tracer.start_as_current_span('dropClass', context = ctx) as span:
             span.set_attribute("course_code",request.courseCode )
-            # span.set_attribute("course_title",request.title )
-            print("--Drop Class Entered---------------------------------------------------------")
             cart = db_2.cartInfo.find_one({"userName":request.userName})["cart"]
             i = 0 # used to find the position of the class in the cart which will be removed
             cartNew = []
@@ -153,27 +114,16 @@ class cartService(
                 else:
                     dropped = True
             db_2.cartInfo.update_one({"userName":request.userName}, {"$set" : {"cart" : cartNew}})
-            print(f"dropped = {dropped}")
-            print(cartNew)
             if (dropped):
                 db.classInfo.update_one( {"course_code":request.courseCode}, {"$inc" :{"size":1} } ) # increment size of the class only if the class is dropped
                 return classResponse(success=True)
-            print("--Drop Class Exited---------------------------------------------------------")
             return classResponse(success=False)
 
-    def getCart(self, request, context):
-        metadata = dict(context.invocation_metadata())
-        traceid = metadata['traceid']
-        spanid = metadata['spanid']
-        traceflags = metadata['traceflags']
-        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
-        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+    def getCart(self, request, metadata):
+        ctx = TraceContextTextMapPropagator().extract(dict(metadata.invocation_metadata()))
         with tracer.start_as_current_span('getCart', context = ctx) as span:
-            print("--Get Cart Entered---------------------------------------------------------")
             span.set_attribute("user_name", request.userName)
             cart = db_2.cartInfo.find_one({"userName": request.userName})["cart"]
-            print(cart)
-            print("--Get Cart Exited---------------------------------------------------------")
             return cartResponse(list=cart)
     
 def serve():

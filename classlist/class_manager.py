@@ -19,12 +19,13 @@ from classList_pb2 import (
     Time,
 )
 import classList_pb2_grpc
-from opentelemetry import trace
+from opentelemetry import baggage, trace, context
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-# from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "classlist"}))
 trace.set_tracer_provider(provider)
@@ -36,12 +37,8 @@ trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(jaeger_exporter)
 )
 tracer = trace.get_tracer(__name__)
-# prop = TraceContextTextMapPropagator()
-# carrier = {}
-
 
 client = pymongo.MongoClient("classlist_db",27017)
-# client = pymongo.MongoClient("localhost",27018)
 db = client.classlist
 TOTAL_ECE_CLASSES=114
 #------------------------------------------------------
@@ -54,19 +51,13 @@ ofindex = 0
 class classlistService(
     classList_pb2_grpc.classlistServicer
 ):
-    def getClassList(self, request, context):
-        metadata = dict(context.invocation_metadata())
-        traceid = metadata['traceid']
-        spanid = metadata['spanid']
-        traceflags = metadata['traceflags']
-        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
-        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+    def getClassList(self, request, metadata):
+        ctx = TraceContextTextMapPropagator().extract(dict(metadata.invocation_metadata()))
         with tracer.start_as_current_span('getClassList', context = ctx) as span:
-            print("Inside getClassList - " + request.year)
             span.set_attribute("year", request.year)
             classes = []
-            with tracer.start_as_current_span('classlist_db-getClassList') as spandb:
-                spandb.set_attribute("year", request.year)
+            with tracer.start_as_current_span('access:classlist_db', context = context.get_current()) as db_span:
+                db_span.set_attribute("year", request.year)
                 if request.year == "all":
                     dblist = db.classInfo.find({})
                 else:
@@ -90,8 +81,6 @@ class classlistService(
                 classes.append(Class(title=class_['titles'],code=class_['course_code'], 
                         subject=class_['subject'], nbr=class_['nbr'], credit=str(class_['credit']), description=class_['description'], sections=sections, recommendation=class_['recommendation']
                     ))
-            print(len(classes))
-
             return classListResponse(classes=classes)
 
 # loads only spring 21 classes
@@ -130,11 +119,6 @@ def init_credits(year):
             else:
                 credit.append(4)  
 
-# def scrape_num_class():
-#     node = soup.find_all('div',attrs={'id': 'class-subject-listing'})[0]
-#     num = node.select("p > span")[0]
-#     return int(num.string)
-
 def scrape_classes(year):
     print("Inside scrape classes")
     init_credits(year)
@@ -147,8 +131,6 @@ def scrape_classes(year):
     node = soup.find_all('div',attrs={'id': 'class-subject-listing'})[0]
     num = node.select("p > span")[0]
     num_classes = int(num.string)
-    # global TOTAL_ECE_CLASSES
-    # TOTAL_ECE_CLASSES += num_classes
 
     i = 0
     for node in soup.find_all('div',attrs={'role': 'region'}):
@@ -165,13 +147,10 @@ def scrape_classes(year):
         new_soup = BeautifulSoup(new_page,'html.parser')
         description = new_soup.find('p',class_='catalog-descr').text.strip()
         descriptions.append(description)
-        # print(description)
         course_code.append(code)
         data_subject.append(subject)
         data_catalog_nbr.append(nbr)
         years.append(year)
-
-
 
         title = []
         for titl in node.select("h3 > div[class='title-coursedescr'] > a"):
@@ -219,17 +198,10 @@ def scrape_classes(year):
         instructors.append(instructor)
     for i in range(len(section)):
         if len(times[i]) != len(section[i]):
-            print(times[i])
+            # print(times[i])
             diff = len(section[i]) - len(times[i])
             for j in range(diff):
                 times[i].append("NA")
-    # print(len(titles))
-    # print(len(class_numbers))
-    # print(len(days))
-    # print(len(times))
-    print("#----------------------")
-    print(instructors)
-    print("#----------------------")
     # print(len(section))
 
 
@@ -240,7 +212,7 @@ def scrape_classes(year):
 '''
 def update_db(): # insert into db
     recommend = csv.DictReader(open("recommend.csv", mode='r', encoding='utf-8-sig'))
-    print(years)
+    # print(years)
     # for j in range(0,TOTAL_ECE_CLASSES):
     for j, title in enumerate(recommend):
     # for j in range(len(years)):
@@ -297,6 +269,6 @@ if __name__ == "__main__":
     # scrape_classes("SP21")
     # scrape_classes("FA21")
     # update_db()
-    print(TOTAL_ECE_CLASSES)
+    # print(TOTAL_ECE_CLASSES)
     print("Serving")
     serve()

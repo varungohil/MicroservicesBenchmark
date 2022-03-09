@@ -41,10 +41,11 @@ export class RosterComponent implements OnInit {
       span.setAttribute("selectedYear", this.selectedyear);
       console.log("Selected Year : " + this.selectedyear);
       this.client1.getClassList(this.selectedyear).asObservable().subscribe(val =>  {
-        this.classes = val;
-        console.log(this.classes);
-      })
+          this.classes = val;
+          console.log(this.classes);
+        // span.end();
     });
     span.end();
-  }
+    });
+  } 
 }

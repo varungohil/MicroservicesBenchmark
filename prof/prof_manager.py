@@ -18,46 +18,16 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-# Jaeger python client --------------------------------------------
-# from jaeger_client import Config
-
-
-# config = Config(
-#     config={ # usually read from some yaml config
-#         'sampler': {
-#             'type': "const",
-#             'param': 1,
-#         },
-#         'local_agent': {
-#             'reporting_host': 'jaeger-agent',
-#             'reporting_port': '6831',
-#         }
-#     },
-#     service_name='prof',
-# )
-# tracer = config.initialize_tracer()
-# Jaeger python client ends --------------------------------------------
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "prof"}))
 trace.set_tracer_provider(provider)
-# print("Created provider")
-# exporter = JaegerExporter(
-#     agent_host_name="jaeger-agent",
-#     agent_port=6831,
-# )
-# exporter = ZipkinExporter(endpoint="http://jaeger-agent:9411/api/v2/spans");
 exporter = OTLPSpanExporter(endpoint="http://otel-collector:4317")
 trace.get_tracer_provider().add_span_processor(
     BatchSpanProcessor(exporter)
 )
 tracer = trace.get_tracer(__name__)
-# print("Created exporter")
-# processor = BatchSpanProcessor(jaeger_exporter)
-# print("Created processor")
-# provider.add_span_processor(processor)
-# print("Added span processor")
-# trace.set_tracer_provider(provider)
-# print("Set tracer provider")
+
 
 
 
@@ -77,38 +47,17 @@ db = client.prof
 class profService(
     prof_pb2_grpc.profServicer
 ):
-    def getProf(self, request, context):
-        metadata = dict(context.invocation_metadata())
-        traceid = metadata['traceid']
-        spanid = metadata['spanid']
-        traceflags = metadata['traceflags']
-        print(traceflags)
-        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
-        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+    def getProf(self, request, metadata):
+        ctx = TraceContextTextMapPropagator().extract(dict(metadata.invocation_metadata()))
         with tracer.start_as_current_span("getProf", context = ctx) as span:
-            print("Inside getProf")
             prof_ = db.profInfo.find_one({'name': request.name})
             span.set_attribute("prof_name", request.name)
-            # similar_profs = []
-            # for similar_prof_ in prof_['similarProfs']:
-            #     temp_prof = {}
-            #     temp_prof['rating'] = prof_['section']
-            #     temp_prof['name'] = prof_['name']
-            #     temp_prof['link'] = prof_['link']
-            #     similar_profs.append(Professor(rating=temp_prof['rating'],name=temp_prof['name'],link=temp_prof['link']))
             return profResponse(prof=Professor(name=prof_['name'],rating=prof_['rating'], 
                         wouldTakeAgain=prof_['would_take_again'], levelOfDifficulty=prof_['level_of_difficulty'], topTags=prof_['top_tags'], reviews=prof_['reviews'], numReviews=prof_['num_reviews']))
     
-    def getProfList(self, request, context):
-        metadata = dict(context.invocation_metadata())
-        traceid = metadata['traceid']
-        spanid = metadata['spanid']
-        traceflags = metadata['traceflags']
-        print(traceflags)
-        spanctx = trace.span.SpanContext(int(traceid, 16), int(spanid, 16), True, trace.TraceFlags(int(traceflags)))
-        ctx = trace.set_span_in_context(trace.NonRecordingSpan(spanctx))
+    def getProfList(self, request, metadata):
+        ctx = TraceContextTextMapPropagator().extract(dict(metadata.invocation_metadata()))
         with tracer.start_as_current_span("getProfList", context = ctx) as span:
-            print("getProfList----------------------------------------------------")
             profs = []
             for prof_ in db.profInfo.find({}):
                 profs.append(Professor(name=prof_['name'],rating=prof_['rating'], 
@@ -125,7 +74,6 @@ def scrape_profs():
     # br = webdriver.Firefox()
 
     url_list = prof_list
-    print(f"Len(url_list) = {len(url_list)}")
     for url in url_list:
         # br.get(url)
         page = urllib.request.urlopen(url)
@@ -231,7 +179,6 @@ def scrape_profs():
 '''
 def update_db():
     profs = csv.DictReader(open("prof.csv", mode='r', encoding='utf-8-sig'))
-    # print(f"Len(profs) = {len(list(profs))}")
     count = 0
     for prof in profs:
         count += 1
@@ -261,25 +208,9 @@ def serve():
 
 if __name__ == "__main__":
     TOTAL_ECE_PROFS=74 # Hard coded for now cause not all prof has a RMP page
-    # print(db.profCounts.find_one({})["count"])
     if ( db.profCounts.find_one({})["count"] != TOTAL_ECE_PROFS ):
-        print("Scraping")
         db.profInfo.delete_many({}) # Always reset 
         db.profCounts.delete_many({}) # Always reset 
         scrape_profs()
         update_db()
-    # scrape_profs()
-    # update_db()
-    print(db.profCounts.find_one({})["count"])
-    
     serve()
-
-# def main():
-#     data = get_data()
-#     # print(len(data))
-#     # (terms, terms_TF) = get_terms_and_TFs(data)
-#     # top_terms = produce_plot(data, terms, terms_TF)
-#     # print(top_terms)
-
-# if __name__ == "__main__":
-#     main()
