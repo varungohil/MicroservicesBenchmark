@@ -457,7 +457,7 @@ uint64_t gen_zipf(connection *conn)
     double sum_prob;              // Sum of probabilities
     double zipf_value;            // Computed exponential value to be returned
     int n = 100;
-    double alpha = 3;
+    double alpha = 300;
 
     // Compute normalization constant on first call only
     if (first == 1) {
@@ -495,6 +495,8 @@ uint64_t gen_exp(connection *c) {
     do {
         z = (double)rand()/RAND_MAX;
     } while ((z == 0) || (z == 1));
+    printf("z = %f \n", z);
+    // z = 0.25;
     exp_value = (-log(z)*(c->interval));
     //printf("%.2f %"PRIu64"\n", exp_value, (uint64_t)(exp_value));
     return (uint64_t)(exp_value);

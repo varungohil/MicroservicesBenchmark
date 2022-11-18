@@ -10,7 +10,7 @@
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "classlistClient", function() { return classlistClient; });
-/* harmony import */ var grpc_web__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! grpc-web */ "UVcI");
+/* harmony import */ var grpc_web__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! grpc-web */ "TxjO");
 /* harmony import */ var grpc_web__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(grpc_web__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _classList_pb__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./classList_pb */ "s0aR");
 /* harmony import */ var _classList_pb__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_classList_pb__WEBPACK_IMPORTED_MODULE_1__);
@@ -66,31 +66,48 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _proto_classList_pb__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../proto/classList_pb */ "s0aR");
 /* harmony import */ var _proto_classList_pb__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_proto_classList_pb__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var rxjs__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! rxjs */ "qCKp");
-/* harmony import */ var _angular_core__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @angular/core */ "fXoL");
+/* harmony import */ var _tracer_service__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./tracer.service */ "Th7Y");
+/* harmony import */ var _angular_core__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @angular/core */ "fXoL");
+
 
 
 
 
 class ClasslistClientService {
     constructor() {
+        this.tracerService = new _tracer_service__WEBPACK_IMPORTED_MODULE_3__["TracerService"]();
         this.classCollections = {};
         this.client = new _proto_ClassListServiceClientPb__WEBPACK_IMPORTED_MODULE_0__["classlistClient"]('http://localhost:8081');
     }
     getClassList(year) {
-        var request = new _proto_classList_pb__WEBPACK_IMPORTED_MODULE_1__["classListRequest"];
-        var result = new rxjs__WEBPACK_IMPORTED_MODULE_2__["BehaviorSubject"]([]);
-        request.setYear(year);
-        this.client.getClassList(request, { 'custom-header-1': 'value1' }, (err, response) => {
-            if (err) {
-                console.log('Error code: ' + err.code + ' "' + err.message + '"');
-            }
-            result.next(response.getClassesList());
+        const span = this.tracerService.getTracer().startSpan('getClassList', undefined, this.tracerService.getActiveContext());
+        var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+            var request = new _proto_classList_pb__WEBPACK_IMPORTED_MODULE_1__["classListRequest"];
+            var result = new rxjs__WEBPACK_IMPORTED_MODULE_2__["BehaviorSubject"]([]);
+            request.setYear(year);
+            console.log("getClassList -> " + year);
+            // var ctx = span.spanContext();
+            // const headers: { [key: string]: unknown } = {}
+            // console.table(headers)
+            // this.tracerService.getPropagator().inject(this.tracerService.getActiveContext(), headers, this.tracerService.tryInject());
+            // console.log("headers = " + headers)
+            // console.table(this.tracerService.getActiveContext())
+            // console.log(JSON.stringify(this.tracerService.getActiveContext()))
+            // console.table(span.spanContext())
+            this.client.getClassList(request, { 'custom-header-1': 'value1', 'traceid': span.spanContext().traceId, 'spanid': span.spanContext().spanId, 'traceflags': span.spanContext().traceFlags.toString() }, (err, response) => {
+                if (err) {
+                    console.log('Error code: ' + err.code + ' "' + err.message + '"');
+                }
+                result.next(response.getClassesList());
+            });
+            return result;
         });
+        span.end();
         return result;
     }
 }
 ClasslistClientService.ɵfac = function ClasslistClientService_Factory(t) { return new (t || ClasslistClientService)(); };
-ClasslistClientService.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_3__["ɵɵdefineInjectable"]({ token: ClasslistClientService, factory: ClasslistClientService.ɵfac, providedIn: 'root' });
+ClasslistClientService.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_4__["ɵɵdefineInjectable"]({ token: ClasslistClientService, factory: ClasslistClientService.ɵfac, providedIn: 'root' });
 
 
 /***/ }),
@@ -106,6 +123,7 @@ ClasslistClientService.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_3__["ɵɵ
 /**
  * @fileoverview
  * @enhanceable
+ * @suppress {missingRequire} reports error on implicit type usages.
  * @suppress {messageConventions} JS Compiler reports an error if a variable or
  *     field starts with 'MSG_' and isn't a translatable message.
  * @public
@@ -564,7 +582,8 @@ proto.classlist.Class.toObject = function(includeInstance, msg) {
     credit: jspb.Message.getFieldWithDefault(msg, 5, ""),
     description: jspb.Message.getFieldWithDefault(msg, 6, ""),
     sectionsList: jspb.Message.toObjectList(msg.getSectionsList(),
-    proto.classlist.Section.toObject, includeInstance)
+    proto.classlist.Section.toObject, includeInstance),
+    recommendation: jspb.Message.getFieldWithDefault(msg, 8, "")
   };
 
   if (includeInstance) {
@@ -629,6 +648,10 @@ proto.classlist.Class.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.classlist.Section;
       reader.readMessage(value,proto.classlist.Section.deserializeBinaryFromReader);
       msg.addSections(value);
+      break;
+    case 8:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setRecommendation(value);
       break;
     default:
       reader.skipField();
@@ -707,6 +730,13 @@ proto.classlist.Class.serializeBinaryToWriter = function(message, writer) {
       7,
       f,
       proto.classlist.Section.serializeBinaryToWriter
+    );
+  }
+  f = message.getRecommendation();
+  if (f.length > 0) {
+    writer.writeString(
+      8,
+      f
     );
   }
 };
@@ -855,6 +885,24 @@ proto.classlist.Class.prototype.addSections = function(opt_value, opt_index) {
  */
 proto.classlist.Class.prototype.clearSectionsList = function() {
   return this.setSectionsList([]);
+};
+
+
+/**
+ * optional string recommendation = 8;
+ * @return {string}
+ */
+proto.classlist.Class.prototype.getRecommendation = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 8, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.classlist.Class} returns this
+ */
+proto.classlist.Class.prototype.setRecommendation = function(value) {
+  return jspb.Message.setProto3StringField(this, 8, value);
 };
 
 

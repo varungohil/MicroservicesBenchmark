@@ -14,9 +14,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _proto_StudentRegisterServiceClientPb__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../proto/StudentRegisterServiceClientPb */ "9jl+");
 /* harmony import */ var _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../proto/studentRegister_pb */ "fanR");
 /* harmony import */ var _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var _angular_core__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @angular/core */ "fXoL");
+/* harmony import */ var _tracer_service__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./tracer.service */ "Th7Y");
+/* harmony import */ var _angular_core__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @angular/core */ "fXoL");
 
-// Option 2: import_style=typescript
+
 
 
 
@@ -25,6 +26,7 @@ class RegisterClientService {
     constructor() {
         this.validationResult = false;
         this.validationPwdResult = false;
+        this.tracerService = new _tracer_service__WEBPACK_IMPORTED_MODULE_3__["TracerService"]();
         this.client = new _proto_StudentRegisterServiceClientPb__WEBPACK_IMPORTED_MODULE_1__["registerClient"]('http://localhost:8081');
     }
     static addMessage(message, cssClass) {
@@ -42,63 +44,86 @@ class RegisterClientService {
     }
     checkUsername(name) {
         return Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__awaiter"])(this, void 0, void 0, function* () {
+            // const span = this.tracerService.getTracer().startSpan('checkUsername', undefined, this.tracerService.getActiveContext());
+            // var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), async () => {
+            //   span.setAttribute("username", name);
             console.log("check username " + name);
             var request = new _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__["Request"];
             request.setUsername(name);
-            var response = this.client.validateUsername(request, { 'custom-header-1': 'value1' });
+            var response = this.client.validateUsername(request, { 'custom-header-1': 'value1' }); //, 'traceid':span.spanContext().traceId, 'spanid':span.spanContext().spanId, 'traceflags':span.spanContext().traceFlags.toString()})
             yield response.then((res) => {
                 var result = res.getSuccess();
+                console.log("result = " + result);
                 this.updateResult(result);
+                console.log("validationResult = " + this.validationResult);
             });
             wait(4 * 1000).then(() => {
                 console.log("wresult " + this.validationResult);
             }).catch(() => {
                 console.log("Wait is over, callback");
             });
+            // })  
             console.log("ccheckUsername " + this.validationResult);
+            // span.setAttribute("validationResult", this.validationResult);
+            // span.end()
             return this.validationResult;
         });
     }
     checkPassword(name, pwd) {
         return Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__awaiter"])(this, void 0, void 0, function* () {
-            console.log("check password " + name);
-            var request = new _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__["Request"];
-            request.setUsername(name);
-            request.setPassword(pwd);
-            var response = this.client.validatePassword(request, { 'custom-header-1': 'value1' });
-            yield response.then((res) => {
-                var result = res.getSuccess();
-                this.updatePwdResult(result);
-                console.log("checkPassword result " + this.validationPwdResult);
-            });
-            wait(4 * 1000).then(() => {
-                console.log("wresult Pwd " + this.validationPwdResult);
-            }).catch(() => {
-                console.log("Wait is over, callback");
-            });
+            const span = this.tracerService.getTracer().startSpan('checkPassword', undefined, this.tracerService.getActiveContext());
+            var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__awaiter"])(this, void 0, void 0, function* () {
+                span.setAttribute("username", name);
+                console.log("check password " + name);
+                var request = new _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__["Request"];
+                request.setUsername(name);
+                request.setPassword(pwd);
+                var response = this.client.validatePassword(request, { 'custom-header-1': 'value1', 'traceid': span.spanContext().traceId, 'spanid': span.spanContext().spanId, 'traceflags': span.spanContext().traceFlags.toString() });
+                yield response.then((res) => {
+                    var result = res.getSuccess();
+                    this.updatePwdResult(result);
+                    console.log("checkPassword result " + this.validationPwdResult);
+                });
+                wait(4 * 1000).then(() => {
+                    console.log("wresult Pwd " + this.validationPwdResult);
+                }).catch(() => {
+                    console.log("Wait is over, callback");
+                });
+            }));
             console.log("ccheckPassword " + this.validationPwdResult);
+            span.setAttribute("validationPwdResult", this.validationPwdResult);
+            span.end();
             return this.validationPwdResult;
         });
     }
     register(username, password, firstname, lastname) {
-        console.log("register service");
-        var request = new _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__["Request"];
-        request.setUsername(username);
-        request.setPassword(password);
-        request.setFirstname(firstname);
-        request.setLastname(lastname);
-        let result = true;
-        this.client.register(request, { 'custom-header-1': 'value1' }, (err, response) => {
-            if (err) {
-                RegisterClientService.ERROR('Error code: ' + err.code + ' "' + err.message + '"');
-            }
-            result = response.getSuccess();
+        const span = this.tracerService.getTracer().startSpan('register', undefined, this.tracerService.getActiveContext());
+        var result = this.tracerService.getContext().with(this.tracerService.setActiveContext(span), () => {
+            span.setAttribute("username", username);
+            span.setAttribute("firstname", firstname);
+            span.setAttribute("lastname", lastname);
+            console.log("register service");
+            var request = new _proto_studentRegister_pb__WEBPACK_IMPORTED_MODULE_2__["Request"];
+            request.setUsername(username);
+            request.setPassword(password);
+            request.setFirstname(firstname);
+            request.setLastname(lastname);
+            let result = true;
+            this.client.register(request, { 'custom-header-1': 'value1', 'traceid': span.spanContext().traceId, 'spanid': span.spanContext().spanId, 'traceflags': span.spanContext().traceFlags.toString() }, (err, response) => {
+                if (err) {
+                    RegisterClientService.ERROR('Error code: ' + err.code + ' "' + err.message + '"');
+                }
+                result = response.getSuccess();
+            });
+            return result;
         });
+        span.setAttribute("result", result);
+        span.end();
         return result;
     }
 }
 RegisterClientService.ɵfac = function RegisterClientService_Factory(t) { return new (t || RegisterClientService)(); };
-RegisterClientService.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_3__["ɵɵdefineInjectable"]({ token: RegisterClientService, factory: RegisterClientService.ɵfac, providedIn: 'root' });
+RegisterClientService.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_4__["ɵɵdefineInjectable"]({ token: RegisterClientService, factory: RegisterClientService.ɵfac, providedIn: 'root' });
 
 
 /***/ }),
@@ -113,7 +138,7 @@ RegisterClientService.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_3__["ɵɵd
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "registerClient", function() { return registerClient; });
-/* harmony import */ var grpc_web__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! grpc-web */ "UVcI");
+/* harmony import */ var grpc_web__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! grpc-web */ "TxjO");
 /* harmony import */ var grpc_web__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(grpc_web__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _studentRegister_pb__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./studentRegister_pb */ "fanR");
 /* harmony import */ var _studentRegister_pb__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_studentRegister_pb__WEBPACK_IMPORTED_MODULE_1__);
